@@ -1,2 +1,0 @@
-std_msgs/Header header
-off_highway_general_purpose_radar_msgs/Target[] targets
