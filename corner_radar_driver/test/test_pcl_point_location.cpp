@@ -37,21 +37,22 @@ TEST(TestCornerRadarPclPointLocation, testPclTransformAnyValues)
 {
   corner_radar_driver_msgs::msg::LocationValues polar;
 
-  polar.radial_distance = 511.0;
-  polar.radial_distance_variance = 0.999984741210938;
-  polar.radial_velocity = 127.99609375;
-  polar.radial_velocity_variance = 0.999984741210938;
-  polar.radial_distance_velocity_covariance = 0.124996185302734;
-  polar.radial_distance_velocity_quality = 255.0;
-  polar.elevation_angle = 30.0 * kDegToRad;
-  polar.elevation_angle_quality = 255.0;
-  polar.elevation_angle_variance = 255.99609375;
-  polar.azimuth_angle = 40.0 * kDegToRad;
-  polar.azimuth_angle_quality = 255.0;
-  polar.azimuth_angle_variance = 255.99609375;
-  polar.azimuthal_partner_id = 255.0;
-  polar.rcs = 127.99609375;
-  polar.rssi = 127.998046875;
+  polar.radial_distance = 300.0;
+  polar.radial_distance_variance = 0.01;
+  polar.radial_velocity = -50.0;
+  polar.radial_velocity_variance = 0.01;
+  polar.radial_distance_velocity_covariance = 0.03;
+  polar.radial_distance_velocity_quality = 120.0;
+  polar.elevation_angle = 25.0 * kDegToRad;
+  polar.elevation_angle_quality = 50.0;
+  polar.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+  polar.azimuth_angle = 45.0 * kDegToRad;
+  polar.azimuth_angle_quality = 100.0;
+  polar.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+  polar.azimuthal_partner_id = 24.0;
+  polar.rcs = 70;
+  polar.rssi = 12.5;
+  polar.measurement_status = 4;
 
   const float & phi = polar.elevation_angle;
   const float & theta = polar.azimuth_angle;
@@ -65,25 +66,26 @@ TEST(TestCornerRadarPclPointLocation, testPclTransformAnyValues)
   EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
 }
 
-TEST(TestCornerRadarPclPointLocation, testPclTransformMaxValues)
+TEST(TestCornerRadarPclPointLocation, testPclTransformMaxElevationAzimuthLimitValue)
 {
   corner_radar_driver_msgs::msg::LocationValues polar;
 
-  polar.radial_distance = 511.0;
-  polar.radial_distance_variance = 0.999984741210938;
-  polar.radial_velocity = 127.99609375;
-  polar.radial_velocity_variance = 0.999984741210938;
-  polar.radial_distance_velocity_covariance = 0.124996185302734;
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.05115;
+  polar.radial_velocity = 55.0;
+  polar.radial_velocity_variance = 0.1023;
+  polar.radial_distance_velocity_covariance = 0.1023;
   polar.radial_distance_velocity_quality = 255.0;
-  polar.elevation_angle = 30.0 * kDegToRad;
+  polar.elevation_angle = 45.0 * kDegToRad;
   polar.elevation_angle_quality = 255.0;
-  polar.elevation_angle_variance = 255.99609375;
-  polar.azimuth_angle = -30.0 * kDegToRad;
+  polar.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  polar.azimuth_angle = -45.0 * kDegToRad;
   polar.azimuth_angle_quality = 255.0;
-  polar.azimuth_angle_variance = 255.99609375;
-  polar.azimuthal_partner_id = 255.0;
-  polar.rcs = 127.99609375;
-  polar.rssi = 127.998046875;
+  polar.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  polar.azimuthal_partner_id = 1023.0;
+  polar.rcs = 70.0;
+  polar.rssi = 100.0;
+  polar.measurement_status = 15;
 
   const float & phi = polar.elevation_angle;
   const float & theta = polar.azimuth_angle;
@@ -97,25 +99,59 @@ TEST(TestCornerRadarPclPointLocation, testPclTransformMaxValues)
   EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
 }
 
-TEST(TestCornerRadarPclPointLocation, testPclTransformMinValues)
+TEST(TestCornerRadarPclPointLocation, testPclTransformMinElevationAzimuthLimitValue)
 {
   corner_radar_driver_msgs::msg::LocationValues polar;
 
-  polar.radial_distance = 511.0;
-  polar.radial_distance_variance = 0.999984741210938;
-  polar.radial_velocity = 127.99609375;
-  polar.radial_velocity_variance = 0.999984741210938;
-  polar.radial_distance_velocity_covariance = 0.124996185302734;
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.05115;
+  polar.radial_velocity = 55.0;
+  polar.radial_velocity_variance = 0.1023;
+  polar.radial_distance_velocity_covariance = 0.1023;
   polar.radial_distance_velocity_quality = 255.0;
-  polar.elevation_angle = -30.0 * kDegToRad;
+  polar.elevation_angle = -45.0 * kDegToRad;
   polar.elevation_angle_quality = 255.0;
-  polar.elevation_angle_variance = 255.99609375;
+  polar.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  polar.azimuth_angle = -45.0 * kDegToRad;
+  polar.azimuth_angle_quality = 255.0;
+  polar.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  polar.azimuthal_partner_id = 1023.0;
+  polar.rcs = 70.0;
+  polar.rssi = 100.0;
+  polar.measurement_status = 15;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_EQ(test_point.x, polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMinAzimuthMaxElevationLimitValue)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.05115;
+  polar.radial_velocity = 55.0;
+  polar.radial_velocity_variance = 0.1023;
+  polar.radial_distance_velocity_covariance = 0.1023;
+  polar.radial_distance_velocity_quality = 255.0;
+  polar.elevation_angle = 30.0 * kDegToRad;
+  polar.elevation_angle_quality = 255.0;
+  polar.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
   polar.azimuth_angle = -59.9 * kDegToRad;
   polar.azimuth_angle_quality = 255.0;
-  polar.azimuth_angle_variance = 255.99609375;
-  polar.azimuthal_partner_id = 255.0;
-  polar.rcs = 127.99609375;
-  polar.rssi = 127.998046875;
+  polar.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  polar.azimuthal_partner_id = 1023.0;
+  polar.rcs = 70.0;
+  polar.rssi = 100.0;
+  polar.measurement_status = 15;
 
   const float & phi = polar.elevation_angle;
   const float & theta = polar.azimuth_angle;
@@ -125,6 +161,171 @@ TEST(TestCornerRadarPclPointLocation, testPclTransformMinValues)
   corner_radar_driver::PclPointLocation test_point(polar);
 
   EXPECT_EQ(test_point.x, polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMinAzimuthMinElevationLimitValue)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.0;
+  polar.radial_velocity = -110.0;
+  polar.radial_velocity_variance = 0.0;
+  polar.radial_distance_velocity_covariance = -0.1024;
+  polar.radial_distance_velocity_quality = 0.0;
+  polar.elevation_angle = -30.0 * kDegToRad;
+  polar.elevation_angle_quality = 0.0;
+  polar.elevation_angle_variance = 0.0;
+  polar.azimuth_angle = -59.9 * kDegToRad;
+  polar.azimuth_angle_quality = 0.0;
+  polar.azimuth_angle_variance = 0.0;
+  polar.azimuthal_partner_id = 0.0;
+  polar.rcs = -50.0;
+  polar.rssi = 0.0;
+  polar.measurement_status = 0.0;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_EQ(test_point.x, polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMaxAzimuthMaxElevationValue)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.0;
+  polar.radial_velocity = -110.0;
+  polar.radial_velocity_variance = 0.0;
+  polar.radial_distance_velocity_covariance = -0.1024;
+  polar.radial_distance_velocity_quality = 0.0;
+  polar.elevation_angle = 45.0 * kDegToRad;
+  polar.elevation_angle_quality = 0.0;
+  polar.elevation_angle_variance = 0.0;
+  polar.azimuth_angle = -30.0 * kDegToRad;
+  polar.azimuth_angle_quality = 0.0;
+  polar.azimuth_angle_variance = 0.0;
+  polar.azimuthal_partner_id = 0.0;
+  polar.rcs = -50.0;
+  polar.rssi = 0.0;
+  polar.measurement_status = 0.0;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_EQ(test_point.x, polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMaxAzimuthMinElevationValue)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.0;
+  polar.radial_velocity = -110.0;
+  polar.radial_velocity_variance = 0.0;
+  polar.radial_distance_velocity_covariance = -0.1024;
+  polar.radial_distance_velocity_quality = 0.0;
+  polar.elevation_angle = -45.0 * kDegToRad;
+  polar.elevation_angle_quality = 0.0;
+  polar.elevation_angle_variance = 0.0;
+  polar.azimuth_angle = -30.0 * kDegToRad;
+  polar.azimuth_angle_quality = 0.0;
+  polar.azimuth_angle_variance = 0.0;
+  polar.azimuthal_partner_id = 0.0;
+  polar.rcs = -50.0;
+  polar.rssi = 0.0;
+  polar.measurement_status = 0.0;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_EQ(test_point.x, polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMinAzimuthMaxElevationValue)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.0;
+  polar.radial_velocity = -110.0;
+  polar.radial_velocity_variance = 0.0;
+  polar.radial_distance_velocity_covariance = -0.1024;
+  polar.radial_distance_velocity_quality = 0.0;
+  polar.elevation_angle = 45.0 * kDegToRad;
+  polar.elevation_angle_quality = 0.0;
+  polar.elevation_angle_variance = 0.0;
+  polar.azimuth_angle = -60.0 * kDegToRad;
+  polar.azimuth_angle_quality = 0.0;
+  polar.azimuth_angle_variance = 0.0;
+  polar.azimuthal_partner_id = 0.0;
+  polar.rcs = -50.0;
+  polar.rssi = 0.0;
+  polar.measurement_status = 0.0;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_TRUE(isnan(polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta)));
+  EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
+  EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
+}
+
+TEST(TestCornerRadarPclPointLocation, testPclTransformMinAzimuthMinElevationValues)
+{
+  corner_radar_driver_msgs::msg::LocationValues polar;
+
+  polar.radial_distance = 327.67;
+  polar.radial_distance_variance = 0.0;
+  polar.radial_velocity = -110.0;
+  polar.radial_velocity_variance = 0.0;
+  polar.radial_distance_velocity_covariance = -0.1024;
+  polar.radial_distance_velocity_quality = 0.0;
+  polar.elevation_angle = -45.0 * kDegToRad;
+  polar.elevation_angle_quality = 0.0;
+  polar.elevation_angle_variance = 0.0;
+  polar.azimuth_angle = -59.9 * kDegToRad;
+  polar.azimuth_angle_quality = 0.0;
+  polar.azimuth_angle_variance = 0.0;
+  polar.azimuthal_partner_id = 0.0;
+  polar.rcs = -50.0;
+  polar.rssi = 0.0;
+  polar.measurement_status = 0.0;
+
+  const float & phi = polar.elevation_angle;
+  const float & theta = polar.azimuth_angle;
+  float cos_phi = cos(phi);
+  float sin_theta = sin(theta);
+
+  corner_radar_driver::PclPointLocation test_point(polar);
+
+  EXPECT_TRUE(isnan(polar.radial_distance * sqrt(cos_phi * cos_phi - sin_theta * sin_theta)));
   EXPECT_EQ(test_point.y, polar.radial_distance * sin_theta);
   EXPECT_EQ(test_point.z, polar.radial_distance * sin(phi));
 }
@@ -139,10 +340,10 @@ TEST(TestCornerRadarPclPointLocation, testPclTransformOutOfRangeValues)
   polar.radial_velocity_variance = 0.999984741210938;
   polar.radial_distance_velocity_covariance = 0.124996185302734;
   polar.radial_distance_velocity_quality = 255.0;
-  polar.elevation_angle = -31.0 * kDegToRad;
+  polar.elevation_angle = -51.0 * kDegToRad;
   polar.elevation_angle_quality = 255.0;
   polar.elevation_angle_variance = 255.99609375;
-  polar.azimuth_angle = -61.0 * kDegToRad;
+  polar.azimuth_angle = -68.0 * kDegToRad;
   polar.azimuth_angle_quality = 255.0;
   polar.azimuth_angle_variance = 255.99609375;
   polar.azimuthal_partner_id = 255.0;

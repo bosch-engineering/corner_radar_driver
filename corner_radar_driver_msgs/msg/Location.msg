@@ -7,3 +7,4 @@ uint8 prot_block_ctr
 
 corner_radar_driver_msgs/LocationValues location1
 corner_radar_driver_msgs/LocationValues location2
+corner_radar_driver_msgs/LocationValues location3

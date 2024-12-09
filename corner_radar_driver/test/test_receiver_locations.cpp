@@ -54,7 +54,7 @@ public:
 
     // Publish locations to from_can_bus
     for (corner_radar_driver_msgs::msg::Location test_location : test_locations.locations) {
-      auto_static_cast(can_msg_location.id, 0x208 + test_location.id);
+      auto_static_cast(can_msg_location.id, 0x18FF04B0 + test_location.id);
       auto_static_cast(can_msg_location.header.stamp, now());
       off_highway_can::Message & location_msg = msg_def[can_msg_location.id];
       auto_static_cast(location_msg.signals["crc_index"].value, test_location.crc);
@@ -102,6 +102,9 @@ public:
       auto_static_cast(
         location_msg.signals["l1_azimuthal_partner_id"].value,
         test_location.location1.azimuthal_partner_id);
+      auto_static_cast(
+        location_msg.signals["l1_measurement_status"].value,
+        test_location.location1.measurement_status);
 
       auto_static_cast(
         location_msg.signals["l2_radial_distance"].value,
@@ -144,10 +147,59 @@ public:
       auto_static_cast(
         location_msg.signals["l2_azimuthal_partner_id"].value,
         test_location.location2.azimuthal_partner_id);
+      auto_static_cast(
+        location_msg.signals["l2_measurement_status"].value,
+        test_location.location2.measurement_status);
+
+      auto_static_cast(
+        location_msg.signals["l3_radial_distance"].value,
+        test_location.location3.radial_distance);
+      auto_static_cast(
+        location_msg.signals["l3_radial_velocity"].value,
+        test_location.location3.radial_velocity);
+      auto_static_cast(
+        location_msg.signals["l3_azimuth_angle"].value,
+        test_location.location3.azimuth_angle / kDegToRad);
+      auto_static_cast(
+        location_msg.signals["l3_elevation_angle"].value,
+        test_location.location3.elevation_angle / kDegToRad);
+      auto_static_cast(
+        location_msg.signals["l3_radial_distance_variance"].value,
+        test_location.location3.radial_distance_variance);
+      auto_static_cast(
+        location_msg.signals["l3_radial_velocity_variance"].value,
+        test_location.location3.radial_velocity_variance);
+      auto_static_cast(
+        location_msg.signals["l3_azimuth_angle_variance"].value,
+        test_location.location3.azimuth_angle_variance / kDegToRad / kDegToRad);
+      auto_static_cast(
+        location_msg.signals["l3_elevation_angle_variance"].value,
+        test_location.location3.elevation_angle_variance / kDegToRad / kDegToRad);
+      auto_static_cast(
+        location_msg.signals["l3_radial_distance_velocity_covariance"].value,
+        test_location.location3.radial_distance_velocity_covariance);
+      auto_static_cast(location_msg.signals["l3_rcs"].value, test_location.location3.rcs);
+      auto_static_cast(location_msg.signals["l3_rssi"].value, test_location.location3.rssi);
+      auto_static_cast(
+        location_msg.signals["l3_radial_distance_velocity_quality"].value,
+        test_location.location3.radial_distance_velocity_quality);
+      auto_static_cast(
+        location_msg.signals["l3_azimuth_angle_quality"].value,
+        test_location.location3.azimuth_angle_quality);
+      auto_static_cast(
+        location_msg.signals["l3_elevation_angle_quality"].value,
+        test_location.location3.elevation_angle_quality);
+      auto_static_cast(
+        location_msg.signals["l3_azimuthal_partner_id"].value,
+        test_location.location3.azimuthal_partner_id);
+      auto_static_cast(
+        location_msg.signals["l3_measurement_status"].value,
+        test_location.location3.measurement_status);
       // Encode message
       location_msg.encode(can_msg_location.data);
 
       // Publish
+      can_msg_location.is_extended = true;
       publisher_->publish(can_msg_location);
 
       defined_location_ids++;
@@ -319,12 +371,12 @@ void TestRadarReceiver::verify_locations(
     EXPECT_EQ(received_location.alive_ctr, current_test_location.alive_ctr);
     EXPECT_EQ(received_location.prot_block_ctr, current_test_location.prot_block_ctr);
 
-    EXPECT_EQ(
+    EXPECT_NEAR(
       received_location.location1.radial_distance,
-      current_test_location.location1.radial_distance);
-    EXPECT_EQ(
+      current_test_location.location1.radial_distance, 0.009);
+    EXPECT_NEAR(
       received_location.location1.radial_velocity,
-      current_test_location.location1.radial_velocity);
+      current_test_location.location1.radial_velocity, 0.009);
     EXPECT_NEAR(
       received_location.location1.azimuth_angle,
       current_test_location.location1.azimuth_angle, 0.09);
@@ -346,8 +398,8 @@ void TestRadarReceiver::verify_locations(
     EXPECT_NEAR(
       received_location.location1.radial_distance_velocity_covariance,
       current_test_location.location1.radial_distance_velocity_covariance, 0.0009);
-    EXPECT_EQ(received_location.location1.rcs, current_test_location.location1.rcs);
-    EXPECT_EQ(received_location.location1.rssi, current_test_location.location1.rssi);
+    EXPECT_NEAR(received_location.location1.rcs, current_test_location.location1.rcs, 0.00009);
+    EXPECT_NEAR(received_location.location1.rssi, current_test_location.location1.rssi, 0.009);
     EXPECT_EQ(
       received_location.location1.radial_distance_velocity_quality,
       current_test_location.location1.radial_distance_velocity_quality);
@@ -360,13 +412,16 @@ void TestRadarReceiver::verify_locations(
     EXPECT_EQ(
       received_location.location1.azimuthal_partner_id,
       current_test_location.location1.azimuthal_partner_id);
+    EXPECT_EQ(
+      received_location.location1.measurement_status,
+      current_test_location.location1.measurement_status);
 
-    EXPECT_EQ(
+    EXPECT_NEAR(
       received_location.location2.radial_distance,
-      current_test_location.location2.radial_distance);
-    EXPECT_EQ(
+      current_test_location.location2.radial_distance, 0.009);
+    EXPECT_NEAR(
       received_location.location2.radial_velocity,
-      current_test_location.location2.radial_velocity);
+      current_test_location.location2.radial_velocity, 0.009);
     EXPECT_NEAR(
       received_location.location2.azimuth_angle,
       current_test_location.location2.azimuth_angle, 0.09);
@@ -388,8 +443,8 @@ void TestRadarReceiver::verify_locations(
     EXPECT_NEAR(
       received_location.location2.radial_distance_velocity_covariance,
       current_test_location.location2.radial_distance_velocity_covariance, 0.0009);
-    EXPECT_EQ(received_location.location2.rcs, current_test_location.location2.rcs);
-    EXPECT_EQ(received_location.location2.rssi, current_test_location.location2.rssi);
+    EXPECT_NEAR(received_location.location2.rcs, current_test_location.location2.rcs, 0.00009);
+    EXPECT_NEAR(received_location.location2.rssi, current_test_location.location2.rssi, 0.009);
     EXPECT_EQ(
       received_location.location2.radial_distance_velocity_quality,
       current_test_location.location2.radial_distance_velocity_quality);
@@ -402,6 +457,54 @@ void TestRadarReceiver::verify_locations(
     EXPECT_EQ(
       received_location.location2.azimuthal_partner_id,
       current_test_location.location2.azimuthal_partner_id);
+    EXPECT_EQ(
+      received_location.location2.measurement_status,
+      current_test_location.location2.measurement_status);
+
+    EXPECT_NEAR(
+      received_location.location3.radial_distance,
+      current_test_location.location3.radial_distance, 0.009);
+    EXPECT_NEAR(
+      received_location.location3.radial_velocity,
+      current_test_location.location3.radial_velocity, 0.009);
+    EXPECT_NEAR(
+      received_location.location3.azimuth_angle,
+      current_test_location.location3.azimuth_angle, 0.09);
+    EXPECT_NEAR(
+      received_location.location3.elevation_angle,
+      current_test_location.location3.elevation_angle, 0.09);
+    EXPECT_NEAR(
+      received_location.location3.radial_distance_variance,
+      current_test_location.location3.radial_distance_variance, 0.0009);
+    EXPECT_NEAR(
+      received_location.location3.radial_velocity_variance,
+      current_test_location.location3.radial_velocity_variance, 0.0009);
+    EXPECT_NEAR(
+      received_location.location3.azimuth_angle_variance,
+      current_test_location.location3.azimuth_angle_variance, 0.09);
+    EXPECT_NEAR(
+      received_location.location3.elevation_angle_variance,
+      current_test_location.location3.elevation_angle_variance, 0.09);
+    EXPECT_NEAR(
+      received_location.location3.radial_distance_velocity_covariance,
+      current_test_location.location3.radial_distance_velocity_covariance, 0.0009);
+    EXPECT_NEAR(received_location.location3.rcs, current_test_location.location3.rcs, 0.00009);
+    EXPECT_NEAR(received_location.location3.rssi, current_test_location.location3.rssi, 0.009);
+    EXPECT_EQ(
+      received_location.location3.radial_distance_velocity_quality,
+      current_test_location.location3.radial_distance_velocity_quality);
+    EXPECT_EQ(
+      received_location.location3.azimuth_angle_quality,
+      current_test_location.location3.azimuth_angle_quality);
+    EXPECT_EQ(
+      received_location.location3.elevation_angle_quality,
+      current_test_location.location3.elevation_angle_quality);
+    EXPECT_EQ(
+      received_location.location3.azimuthal_partner_id,
+      current_test_location.location3.azimuthal_partner_id);
+    EXPECT_EQ(
+      received_location.location3.measurement_status,
+      current_test_location.location3.measurement_status);
 
     found_location_ids++;
   }
@@ -427,6 +530,7 @@ TEST_F(TestRadarReceiver, testLocationZero) {
   test_location.location1.azimuthal_partner_id = 0;
   test_location.location1.rcs = 0.0;
   test_location.location1.rssi = 0.0;
+  test_location.location1.measurement_status = 0.0;
 
   test_location.location2.radial_distance = 0.0;
   test_location.location2.radial_distance_variance = 0.0;
@@ -443,6 +547,25 @@ TEST_F(TestRadarReceiver, testLocationZero) {
   test_location.location2.azimuthal_partner_id = 0;
   test_location.location2.rcs = 0.0;
   test_location.location2.rssi = 0.0;
+  test_location.location2.measurement_status = 0.0;
+
+  test_location.location3.radial_distance = 0.0;
+  test_location.location3.radial_distance_variance = 0.0;
+  test_location.location3.radial_velocity = 0.0;
+  test_location.location3.radial_velocity_variance = 0.0;
+  test_location.location3.radial_distance_velocity_covariance = 0.0;
+  test_location.location3.radial_distance_velocity_quality = 0.0;
+  test_location.location3.elevation_angle = 0.0;
+  test_location.location3.elevation_angle_quality = 0.0;
+  test_location.location3.elevation_angle_variance = 0.0;
+  test_location.location3.azimuth_angle = 0.0;
+  test_location.location3.azimuth_angle_quality = 0.0;
+  test_location.location3.azimuth_angle_variance = 0.0;
+  test_location.location3.azimuthal_partner_id = 0;
+  test_location.location3.rcs = 0.0;
+  test_location.location3.rssi = 0.0;
+  test_location.location2.measurement_status = 0.0;
+
   test_locations.locations.push_back(test_location);
 
   publish_locations(test_locations);
@@ -452,38 +575,59 @@ TEST_F(TestRadarReceiver, testLocationZero) {
 TEST_F(TestRadarReceiver, testLocationsValidValues) {
   corner_radar_driver_msgs::msg::LocationArray test_locations;
   corner_radar_driver_msgs::msg::Location test_location;
+  corner_radar_driver_msgs::msg::LocationArray expected_locations_test;
   test_location.id = 0;
-  test_location.location1.radial_distance = 510.0;
-  test_location.location1.radial_distance_variance = 0.5;
+  test_location.location1.radial_distance = 300.0;
+  test_location.location1.radial_distance_variance = 0.01;
   test_location.location1.radial_velocity = -50.0;
   test_location.location1.radial_velocity_variance = 0.01;
   test_location.location1.radial_distance_velocity_covariance = 0.03;
   test_location.location1.radial_distance_velocity_quality = 120.0;
   test_location.location1.elevation_angle = 25.0 * kDegToRad;
   test_location.location1.elevation_angle_quality = 50.0;
-  test_location.location1.elevation_angle_variance = 20.0 * kDegToRad * kDegToRad;
+  test_location.location1.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
   test_location.location1.azimuth_angle = 45.0 * kDegToRad;
   test_location.location1.azimuth_angle_quality = 100.0;
-  test_location.location1.azimuth_angle_variance = 60.0 * kDegToRad * kDegToRad;
+  test_location.location1.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
   test_location.location1.azimuthal_partner_id = 24.0;
-  test_location.location1.rcs = 32.0;
+  test_location.location1.rcs = 70;
   test_location.location1.rssi = 12.5;
+  test_location.location1.measurement_status = 4;
 
-  test_location.location2.radial_distance = 405.0;
-  test_location.location2.radial_distance_variance = 0.7;
-  test_location.location2.radial_velocity = 12.0;
-  test_location.location2.radial_velocity_variance = 0.8;
-  test_location.location2.radial_distance_velocity_covariance = 0.1;
-  test_location.location2.radial_distance_velocity_quality = 98.0;
-  test_location.location2.elevation_angle = -20.0 * kDegToRad;
-  test_location.location2.elevation_angle_quality = 19.0;
-  test_location.location2.elevation_angle_variance = 220.0 * kDegToRad * kDegToRad;
-  test_location.location2.azimuth_angle = 80.0 * kDegToRad;
-  test_location.location2.azimuth_angle_quality = 62.0;
-  test_location.location2.azimuth_angle_variance = 48.0 * kDegToRad * kDegToRad;
-  test_location.location2.azimuthal_partner_id = 65.0;
-  test_location.location2.rcs = 126.0;
-  test_location.location2.rssi = 102.0;
+  test_location.location2.radial_distance = 250.0;
+  test_location.location2.radial_distance_variance = 0.04;
+  test_location.location2.radial_velocity = 40.0;
+  test_location.location2.radial_velocity_variance = 0.001;
+  test_location.location2.radial_distance_velocity_covariance = -0.03;
+  test_location.location2.radial_distance_velocity_quality = 20.0;
+  test_location.location2.elevation_angle = 37.7 * kDegToRad;
+  test_location.location2.elevation_angle_quality = 10.0;
+  test_location.location2.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+  test_location.location2.azimuth_angle = -45.0 * kDegToRad;
+  test_location.location2.azimuth_angle_quality = 250.0;
+  test_location.location2.azimuth_angle_variance = 0.9 * kDegToRad * kDegToRad;
+  test_location.location2.azimuthal_partner_id = 1020.0;
+  test_location.location2.rcs = 25.8;
+  test_location.location2.rssi = 59.0;
+  test_location.location2.measurement_status = 10;
+
+  test_location.location3.radial_distance = 5.8;
+  test_location.location3.radial_distance_variance = 0.01;
+  test_location.location3.radial_velocity = -50.0;
+  test_location.location3.radial_velocity_variance = 0.01;
+  test_location.location3.radial_distance_velocity_covariance = 0.03;
+  test_location.location3.radial_distance_velocity_quality = 120.0;
+  test_location.location3.elevation_angle = 25.0 * kDegToRad;
+  test_location.location3.elevation_angle_quality = 50.0;
+  test_location.location3.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+  test_location.location3.azimuth_angle = 45.0 * kDegToRad;
+  test_location.location3.azimuth_angle_quality = 100.0;
+  test_location.location3.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+  test_location.location3.azimuthal_partner_id = 24.0;
+  test_location.location3.rcs = 67.6;
+  test_location.location3.rssi = 12.5;
+  test_location.location3.measurement_status = 4;
+
   test_locations.locations.push_back(test_location);
 
   publish_locations(test_locations);
@@ -496,35 +640,55 @@ TEST_F(TestRadarReceiver, testLocationsMinValues) {
   test_location.id = 0;
   test_location.location1.radial_distance = 0.0;
   test_location.location1.radial_distance_variance = 0.0;
-  test_location.location1.radial_velocity = -128.0;
+  test_location.location1.radial_velocity = -110.0;
   test_location.location1.radial_velocity_variance = 0.0;
-  test_location.location1.radial_distance_velocity_covariance = -0.125;
+  test_location.location1.radial_distance_velocity_covariance = -0.1024;
   test_location.location1.radial_distance_velocity_quality = 0.0;
-  test_location.location1.elevation_angle = -30.0 * kDegToRad;
+  test_location.location1.elevation_angle = -45.0 * kDegToRad;
   test_location.location1.elevation_angle_quality = 0.0;
   test_location.location1.elevation_angle_variance = 0.0;
   test_location.location1.azimuth_angle = -90.0 * kDegToRad;
   test_location.location1.azimuth_angle_quality = 0.0;
   test_location.location1.azimuth_angle_variance = 0.0;
   test_location.location1.azimuthal_partner_id = 0.0;
-  test_location.location1.rcs = -128.0;
+  test_location.location1.rcs = -50.0;
   test_location.location1.rssi = 0.0;
+  test_location.location1.measurement_status = 0.0;
 
   test_location.location2.radial_distance = 0.0;
   test_location.location2.radial_distance_variance = 0.0;
-  test_location.location2.radial_velocity = -128.0;
+  test_location.location2.radial_velocity = -110.0;
   test_location.location2.radial_velocity_variance = 0.0;
-  test_location.location2.radial_distance_velocity_covariance = -0.125;
+  test_location.location2.radial_distance_velocity_covariance = -0.1024;
   test_location.location2.radial_distance_velocity_quality = 0.0;
-  test_location.location2.elevation_angle = -30.0 * kDegToRad;
+  test_location.location2.elevation_angle = -45.0 * kDegToRad;
   test_location.location2.elevation_angle_quality = 0.0;
   test_location.location2.elevation_angle_variance = 0.0;
   test_location.location2.azimuth_angle = -90.0 * kDegToRad;
   test_location.location2.azimuth_angle_quality = 0.0;
   test_location.location2.azimuth_angle_variance = 0.0;
   test_location.location2.azimuthal_partner_id = 0.0;
-  test_location.location2.rcs = -128.0;
+  test_location.location2.rcs = -50.0;
   test_location.location2.rssi = 0.0;
+  test_location.location2.measurement_status = 0.0;
+
+  test_location.location3.radial_distance = 0.0;
+  test_location.location3.radial_distance_variance = 0.0;
+  test_location.location3.radial_velocity = -110.0;
+  test_location.location3.radial_velocity_variance = 0.0;
+  test_location.location3.radial_distance_velocity_covariance = -0.1024;
+  test_location.location3.radial_distance_velocity_quality = 0.0;
+  test_location.location3.elevation_angle = -45.0 * kDegToRad;
+  test_location.location3.elevation_angle_quality = 0.0;
+  test_location.location3.elevation_angle_variance = 0.0;
+  test_location.location3.azimuth_angle = -90.0 * kDegToRad;
+  test_location.location3.azimuth_angle_quality = 0.0;
+  test_location.location3.azimuth_angle_variance = 0.0;
+  test_location.location3.azimuthal_partner_id = 0.0;
+  test_location.location3.rcs = -50.0;
+  test_location.location3.rssi = 0.0;
+  test_location.location3.measurement_status = 0.0;
+
   test_locations.locations.push_back(test_location);
 
   publish_locations(test_locations);
@@ -535,37 +699,57 @@ TEST_F(TestRadarReceiver, testLocationsMaxValues) {
   corner_radar_driver_msgs::msg::LocationArray test_locations;
   corner_radar_driver_msgs::msg::Location test_location;
   test_location.id = 0;
-  test_location.location1.radial_distance = 511.9921875;
-  test_location.location1.radial_distance_variance = 0.999984741210938;
-  test_location.location1.radial_velocity = 127.99609375;
-  test_location.location1.radial_velocity_variance = 0.999984741210938;
-  test_location.location1.radial_distance_velocity_covariance = 0.124996185302734;
+  test_location.location1.radial_distance = 327.67;
+  test_location.location1.radial_distance_variance = 0.05115;
+  test_location.location1.radial_velocity = 55.0;
+  test_location.location1.radial_velocity_variance = 0.1023;
+  test_location.location1.radial_distance_velocity_covariance = 0.1023;
   test_location.location1.radial_distance_velocity_quality = 255.0;
-  test_location.location1.elevation_angle = 30.0 * kDegToRad;
+  test_location.location1.elevation_angle = 45.0 * kDegToRad;
   test_location.location1.elevation_angle_quality = 255.0;
-  test_location.location1.elevation_angle_variance = 255.99609375 * kDegToRad * kDegToRad;
+  test_location.location1.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
   test_location.location1.azimuth_angle = 90.0 * kDegToRad;
   test_location.location1.azimuth_angle_quality = 255.0;
-  test_location.location1.azimuth_angle_variance = 255.99609375 * kDegToRad * kDegToRad;
-  test_location.location1.azimuthal_partner_id = 255.0;
-  test_location.location1.rcs = 127.99609375;
-  test_location.location1.rssi = 127.998046875;
+  test_location.location1.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  test_location.location1.azimuthal_partner_id = 1023.0;
+  test_location.location1.rcs = 70.0;
+  test_location.location1.rssi = 100.0;
+  test_location.location1.measurement_status = 15;
 
-  test_location.location2.radial_distance = 511.9921875;
-  test_location.location2.radial_distance_variance = 0.999984741210938;
-  test_location.location2.radial_velocity = 127.99609375;
-  test_location.location2.radial_velocity_variance = 0.999984741210938;
-  test_location.location2.radial_distance_velocity_covariance = 0.124996185302734;
+  test_location.location2.radial_distance = 327.67;
+  test_location.location2.radial_distance_variance = 0.05115;
+  test_location.location2.radial_velocity = 55.0;
+  test_location.location2.radial_velocity_variance = 0.1023;
+  test_location.location2.radial_distance_velocity_covariance = 0.1023;
   test_location.location2.radial_distance_velocity_quality = 255.0;
-  test_location.location2.elevation_angle = 30.0 * kDegToRad;
+  test_location.location2.elevation_angle = 45.0 * kDegToRad;
   test_location.location2.elevation_angle_quality = 255.0;
-  test_location.location2.elevation_angle_variance = 255.99609375 * kDegToRad * kDegToRad;
+  test_location.location2.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
   test_location.location2.azimuth_angle = 90.0 * kDegToRad;
   test_location.location2.azimuth_angle_quality = 255.0;
-  test_location.location2.azimuth_angle_variance = 255.99609375 * kDegToRad * kDegToRad;
-  test_location.location2.azimuthal_partner_id = 255.0;
-  test_location.location2.rcs = 127.99609375;
-  test_location.location2.rssi = 127.998046875;
+  test_location.location2.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  test_location.location2.azimuthal_partner_id = 1023.0;
+  test_location.location2.rcs = 70.0;
+  test_location.location2.rssi = 100.0;
+  test_location.location2.measurement_status = 15;
+
+  test_location.location3.radial_distance = 327.67;
+  test_location.location3.radial_distance_variance = 0.05115;
+  test_location.location3.radial_velocity = 55.0;
+  test_location.location3.radial_velocity_variance = 0.1023;
+  test_location.location3.radial_distance_velocity_covariance = 0.1023;
+  test_location.location3.radial_distance_velocity_quality = 255.0;
+  test_location.location3.elevation_angle = 45.0 * kDegToRad;
+  test_location.location3.elevation_angle_quality = 255.0;
+  test_location.location3.elevation_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  test_location.location3.azimuth_angle = 90.0 * kDegToRad;
+  test_location.location3.azimuth_angle_quality = 255.0;
+  test_location.location3.azimuth_angle_variance = 1.023 * kDegToRad * kDegToRad;
+  test_location.location3.azimuthal_partner_id = 1023.0;
+  test_location.location3.rcs = 70.0;
+  test_location.location3.rssi = 100.0;
+  test_location.location3.measurement_status = 15;
+
   test_locations.locations.push_back(test_location);
 
   publish_locations(test_locations);
@@ -585,70 +769,92 @@ TEST_F(TestRadarReceiver, test85RandomValidLocations) {
 
     test_location.id = id;
     test_location.location1.radial_distance =
-      RandomQuantizedGenerator{0.0078125, 0.0, 511.9921875}(rng);
+      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
     test_location.location1.radial_distance_variance =
-      RandomQuantizedGenerator{1.52587890625e-05, 0.0, 0.999984741210938}(rng);
-    test_location.location1.radial_velocity =
-      RandomQuantizedGenerator{0.00390625, -128.0, 127.99609375}(rng);
+      RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
+    test_location.location1.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);
     test_location.location1.radial_velocity_variance =
-      RandomQuantizedGenerator{1.52587890625e-05, 0.0, 0.999984741210938}(rng);
+      RandomQuantizedGenerator{0.0001, 0.0, 0.1023}(rng);
     test_location.location1.radial_distance_velocity_covariance =
-      RandomQuantizedGenerator{3.814697265625e-06, -0.125, 0.124996185302734}(rng);
+      RandomQuantizedGenerator{0.0001, -0.1024, 0.1023}(rng);
     test_location.location1.radial_distance_velocity_quality =
       RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location1.elevation_angle =
-      RandomQuantizedGenerator{0.01 * kDegToRad, -30.0 * kDegToRad, 30.0 * kDegToRad}(rng);
+      RandomQuantizedGenerator{0.1 * kDegToRad, -45.0 * kDegToRad, 45.0 * kDegToRad}(rng);
     test_location.location1.elevation_angle_quality =
       RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location1.elevation_angle_variance =
-      RandomQuantizedGenerator{0.00390625 * kDegToRad * kDegToRad, 0.0,
-      255.99609375 * kDegToRad * kDegToRad}(rng);
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
     test_location.location1.azimuth_angle =
-      RandomQuantizedGenerator{0.01 * kDegToRad, -90.0 * kDegToRad, 90.0 * kDegToRad}(rng);
-    test_location.location1.azimuth_angle_quality =
-      RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
+      RandomQuantizedGenerator{0.1 * kDegToRad, -90.0 * kDegToRad, 90.0 * kDegToRad}(rng);
+    test_location.location1.azimuth_angle_quality = RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location1.azimuth_angle_variance =
-      RandomQuantizedGenerator{0.00390625 * kDegToRad * kDegToRad, 0.0,
-      255.99609375 * kDegToRad * kDegToRad}(rng);
-    test_location.location1.azimuthal_partner_id =
-      RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
-    test_location.location1.rcs =
-      RandomQuantizedGenerator{0.00390625, -128.0, 127.99609375}(rng);
-    test_location.location1.rssi =
-      RandomQuantizedGenerator{0.001953125, 0.0, 127.99804687}(rng);
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
+    test_location.location1.azimuthal_partner_id = RandomQuantizedGenerator{1.0, 0.0, 1023.0}(rng);
+    test_location.location1.rcs = RandomQuantizedGenerator{0.2, -50.0, 70.0}(rng);
+    test_location.location1.rssi = RandomQuantizedGenerator{0.1, 0.0, 100.0}(rng);
+    test_location.location1.measurement_status = RandomQuantizedGenerator{1.0, 0.0, 15.0}(rng);
 
     test_location.location2.radial_distance =
-      RandomQuantizedGenerator{0.0078125, 0.0, 511.9921875}(rng);
+      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
     test_location.location2.radial_distance_variance =
-      RandomQuantizedGenerator{1.52587890625e-05, 0.0, 0.999984741210938}(rng);
-    test_location.location2.radial_velocity =
-      RandomQuantizedGenerator{0.00390625, -128.0, 127.99609375}(rng);
+      RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
+    test_location.location2.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);
     test_location.location2.radial_velocity_variance =
-      RandomQuantizedGenerator{1.52587890625e-05, 0.0, 0.999984741210938}(rng);
+      RandomQuantizedGenerator{0.0001, 0.0, 0.1023}(rng);
     test_location.location2.radial_distance_velocity_covariance =
-      RandomQuantizedGenerator{3.814697265625e-06, -0.125, 0.124996185302734}(rng);
+      RandomQuantizedGenerator{0.0001, -0.1024, 0.1023}(rng);
     test_location.location2.radial_distance_velocity_quality =
       RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location2.elevation_angle =
-      RandomQuantizedGenerator{0.00390625 * kDegToRad, -30.0 * kDegToRad, 30.0 * kDegToRad}(rng);
+      RandomQuantizedGenerator{0.1 * kDegToRad, -45.0 * kDegToRad, 45.0 * kDegToRad}(rng);
     test_location.location2.elevation_angle_quality =
       RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location2.elevation_angle_variance =
-      RandomQuantizedGenerator{0.00390625 * kDegToRad * kDegToRad, 0.0,
-      255.99609375 * kDegToRad * kDegToRad}(rng);
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
     test_location.location2.azimuth_angle =
-      RandomQuantizedGenerator{0.01 * kDegToRad, -90.0 * kDegToRad, 90.0 * kDegToRad}(rng);
-    test_location.location2.azimuth_angle_quality =
-      RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
+      RandomQuantizedGenerator{0.1 * kDegToRad, -90.0 * kDegToRad, 90.0 * kDegToRad}(rng);
+    test_location.location2.azimuth_angle_quality = RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
     test_location.location2.azimuth_angle_variance =
-      RandomQuantizedGenerator{0.00390625 * kDegToRad * kDegToRad, 0.0,
-      255.99609375 * kDegToRad * kDegToRad}(rng);
-    test_location.location2.azimuthal_partner_id =
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
+    test_location.location2.azimuthal_partner_id = RandomQuantizedGenerator{1.0, 0.0, 1023.0}(rng);
+    test_location.location2.rcs = RandomQuantizedGenerator{0.2, -50.0, 70.0}(rng);
+    test_location.location2.rssi = RandomQuantizedGenerator{0.1, 0.0, 100.0}(rng);
+    test_location.location2.measurement_status = RandomQuantizedGenerator{1.0, 0.0, 15.0}(rng);
+
+    test_location.location3.radial_distance =
+      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
+    test_location.location3.radial_distance_variance =
+      RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
+    test_location.location3.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);
+    test_location.location3.radial_velocity_variance =
+      RandomQuantizedGenerator{0.0001, 0.0, 0.1023}(rng);
+    test_location.location3.radial_distance_velocity_covariance =
+      RandomQuantizedGenerator{0.0001, -0.1024, 0.1023}(rng);
+    test_location.location3.radial_distance_velocity_quality =
       RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
-    test_location.location2.rcs =
-      RandomQuantizedGenerator{0.00390625, -128.0, 127.99609375}(rng);
-    test_location.location2.rssi =
-      RandomQuantizedGenerator{0.001953125, 0.0, 127.99804687}(rng);
+    test_location.location3.elevation_angle =
+      RandomQuantizedGenerator{0.1 * kDegToRad, -45.0 * kDegToRad, 45.0 * kDegToRad}(rng);
+    test_location.location3.elevation_angle_quality =
+      RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
+    test_location.location3.elevation_angle_variance =
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
+    test_location.location3.azimuth_angle =
+      RandomQuantizedGenerator{0.1 * kDegToRad, -90.0 * kDegToRad, 90.0 * kDegToRad}(rng);
+    test_location.location3.azimuth_angle_quality = RandomQuantizedGenerator{1.0, 0.0, 255.0}(rng);
+    test_location.location3.azimuth_angle_variance =
+      RandomQuantizedGenerator{0.001 * kDegToRad * kDegToRad, 0.0,
+      1.023 * kDegToRad * kDegToRad}(rng);
+    test_location.location3.azimuthal_partner_id = RandomQuantizedGenerator{1.0, 0.0, 1023.0}(rng);
+    test_location.location3.rcs = RandomQuantizedGenerator{0.2, -50.0, 70.0}(rng);
+    test_location.location3.rssi = RandomQuantizedGenerator{0.1, 0.0, 100.0}(rng);
+    test_location.location3.measurement_status = RandomQuantizedGenerator{1.0, 0.0, 15.0}(rng);
+
     test_locations.locations.push_back(test_location);
   }
 
@@ -660,7 +866,7 @@ TEST_F(TestRadarReceiver, testInvalidLocationId) {
   corner_radar_driver_msgs::msg::LocationArray test_locations;
   corner_radar_driver_msgs::msg::Location test_location;
   // Set invalid location ID
-  test_location.id = 245;
+  test_location.id = 255;
 
   test_locations.locations.push_back(test_location);
 

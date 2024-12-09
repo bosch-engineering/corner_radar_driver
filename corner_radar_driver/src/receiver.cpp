@@ -60,47 +60,64 @@ Receiver::Messages Receiver::fillMessageDefinitions()
   // Start bit, length, big endian, signed, factor, offset
   l.signals["crc_index"] = {0, 16, false, false, 1, 0};
   l.signals["message_counter"] = {16, 8, false, false, 1, 0};
-  l.signals["block_counter"] = {24, 8, false, false, 1, 0};
+  l.signals["block_counter"] = {24, 4, false, false, 1, 0};
 
-  l.signals["l1_radial_distance"] = {32, 16, false, false, 0.0078125, 0};
-  l.signals["l1_radial_velocity"] = {48, 16, false, false, 0.00390625, -128};
-  l.signals["l1_azimuth_angle"] = {64, 16, false, false, 0.01, -327.68};
-  l.signals["l1_elevation_angle"] = {80, 16, false, false, 0.01, -327.68};
-  l.signals["l1_radial_distance_variance"] = {96, 16, false, false, 0.0000152587890625, 0};
-  l.signals["l1_radial_velocity_variance"] = {112, 16, false, false, 0.0000152587890625, 0};
-  l.signals["l1_azimuth_angle_variance"] = {128, 16, false, false, 0.00390625, 0};
-  l.signals["l1_elevation_angle_variance"] = {144, 16, false, false, 0.00390625, 0};
-  l.signals["l1_radial_distance_velocity_covariance"] = {
-    160, 16, false, false, 0.000003814697265625, -0.125};
-  l.signals["l1_rcs"] = {176, 16, false, false, 0.00390625, -128};
-  l.signals["l1_rssi"] = {192, 16, false, false, 0.001953125, 0};
-  l.signals["l1_radial_distance_velocity_quality"] = {208, 8, false, false, 1, 0};
-  l.signals["l1_azimuth_angle_quality"] = {216, 8, false, false, 1, 0};
-  l.signals["l1_elevation_angle_quality"] = {224, 8, false, false, 1, 0};
-  l.signals["l1_azimuthal_partner_id"] = {232, 8, false, false, 1, 0};
+  l.signals["l1_radial_distance"] = {32, 15, false, false, 0.01, 0};
+  l.signals["l1_radial_velocity"] = {47, 15, false, false, 0.01, -163.84};
+  l.signals["l1_elevation_angle"] = {62, 10, false, false, 0.1, -51.2};
+  l.signals["l1_azimuth_angle"] = {72, 11, false, false, 0.1, -102.4};
+  l.signals["l1_radial_distance_velocity_covariance"] = {83, 11, false, false, 0.0001, -0.1024};
+  l.signals["l1_radial_distance_variance"] = {94, 10, false, false, 5e-005, 0};
+  l.signals["l1_radial_velocity_variance"] = {104, 10, false, false, 0.0001, 0};
+  l.signals["l1_elevation_angle_variance"] = {114, 10, false, false, 0.001, 0};
+  l.signals["l1_azimuth_angle_variance"] = {124, 10, false, false, 0.001, 0};
+  l.signals["l1_rcs"] = {134, 10, false, false, 0.2, -102.4};
+  l.signals["l1_radial_distance_velocity_quality"] = {144, 8, false, false, 1, 0};
+  l.signals["l1_elevation_angle_quality"] = {152, 8, false, false, 1, 0};
+  l.signals["l1_azimuth_angle_quality"] = {160, 8, false, false, 1, 0};
+  l.signals["l1_rssi"] = {168, 10, false, false, 0.1, 0};
+  l.signals["l1_azimuthal_partner_id"] = {178, 10, false, false, 1, 0};
+  l.signals["l1_measurement_status"] = {188, 4, false, false, 1, 0};
 
-  l.signals["l2_radial_distance"] = {256, 16, false, false, 0.0078125, 0};
-  l.signals["l2_radial_velocity"] = {272, 16, false, false, 0.00390625, -128};
-  l.signals["l2_azimuth_angle"] = {288, 16, false, false, 0.01, -327.68};
-  l.signals["l2_elevation_angle"] = {304, 16, false, false, 0.01, -327.68};
-  l.signals["l2_radial_distance_variance"] = {320, 16, false, false, 0.0000152587890625, 0};
-  l.signals["l2_radial_velocity_variance"] = {336, 16, false, false, 0.0000152587890625, 0};
-  l.signals["l2_azimuth_angle_variance"] = {352, 16, false, false, 0.00390625, 0};
-  l.signals["l2_elevation_angle_variance"] = {368, 16, false, false, 0.00390625, 0};
-  l.signals["l2_radial_distance_velocity_covariance"] = {
-    384, 16, false, false, 0.000003814697265625, -0.125};
-  l.signals["l2_rcs"] = {400, 16, false, false, 0.00390625, -128};
-  l.signals["l2_rssi"] = {416, 16, false, false, 0.001953125, 0};
-  l.signals["l2_radial_distance_velocity_quality"] = {432, 8, false, false, 1, 0};
-  l.signals["l2_azimuth_angle_quality"] = {440, 8, false, false, 1, 0};
-  l.signals["l2_elevation_angle_quality"] = {448, 8, false, false, 1, 0};
-  l.signals["l2_azimuthal_partner_id"] = {456, 8, false, false, 1, 0};
+  l.signals["l2_radial_distance"] = {192, 15, false, false, 0.01, 0};
+  l.signals["l2_radial_velocity"] = {207, 15, false, false, 0.01, -163.84};
+  l.signals["l2_elevation_angle"] = {222, 10, false, false, 0.1, -51.2};
+  l.signals["l2_azimuth_angle"] = {232, 11, false, false, 0.1, -102.4};
+  l.signals["l2_radial_distance_velocity_covariance"] = {243, 11, false, false, 0.0001, -0.1024};
+  l.signals["l2_radial_distance_variance"] = {254, 10, false, false, 5e-005, 0};
+  l.signals["l2_radial_velocity_variance"] = {264, 10, false, false, 0.0001, 0};
+  l.signals["l2_elevation_angle_variance"] = {274, 10, false, false, 0.001, 0};
+  l.signals["l2_azimuth_angle_variance"] = {284, 10, false, false, 0.001, 0};
+  l.signals["l2_rcs"] = {294, 10, false, false, 0.2, -102.4};
+  l.signals["l2_radial_distance_velocity_quality"] = {304, 8, false, false, 1, 0};
+  l.signals["l2_elevation_angle_quality"] = {312, 8, false, false, 1, 0};
+  l.signals["l2_azimuth_angle_quality"] = {320, 8, false, false, 1, 0};
+  l.signals["l2_rssi"] = {328, 10, false, false, 0.1, 0};
+  l.signals["l2_azimuthal_partner_id"] = {338, 10, false, false, 1, 0};
+  l.signals["l2_measurement_status"] = {348, 4, false, false, 1, 0};
+
+  l.signals["l3_radial_distance"] = {352, 15, false, false, 0.01, 0};
+  l.signals["l3_radial_velocity"] = {367, 15, false, false, 0.01, -163.84};
+  l.signals["l3_elevation_angle"] = {382, 10, false, false, 0.1, -51.2};
+  l.signals["l3_azimuth_angle"] = {392, 11, false, false, 0.1, -102.4};
+  l.signals["l3_radial_distance_velocity_covariance"] = {403, 11, false, false, 0.0001, -0.1024};
+  l.signals["l3_radial_distance_variance"] = {414, 10, false, false, 5e-005, 0};
+  l.signals["l3_radial_velocity_variance"] = {424, 10, false, false, 0.0001, 0};
+  l.signals["l3_elevation_angle_variance"] = {434, 10, false, false, 0.001, 0};
+  l.signals["l3_azimuth_angle_variance"] = {444, 10, false, false, 0.001, 0};
+  l.signals["l3_rcs"] = {454, 10, false, false, 0.2, -102.4};
+  l.signals["l3_radial_distance_velocity_quality"] = {464, 8, false, false, 1, 0};
+  l.signals["l3_elevation_angle_quality"] = {472, 8, false, false, 1, 0};
+  l.signals["l3_azimuth_angle_quality"] = {480, 8, false, false, 1, 0};
+  l.signals["l3_rssi"] = {488, 10, false, false, 0.1, 0};
+  l.signals["l3_azimuthal_partner_id"] = {498, 10, false, false, 1, 0};
+  l.signals["l3_measurement_status"] = {508, 4, false, false, 1, 0};
 
   // Fill message definitions
   for (uint8_t i = 0; i < kCountLocations; ++i) {
-    m[location_base_id_ + i] = l;
+    m[location_base_id_ + i * 256] = l;
     // Replace XX with index in message name
-    auto & name = m[location_base_id_ + i].name;
+    auto & name = m[location_base_id_ + i * 256].name;
     name = std::regex_replace(name, std::regex("XX"), std::to_string(i));
   }
 
@@ -111,7 +128,7 @@ void Receiver::process(std_msgs::msg::Header header, const FrameId & id, Message
 {
   using off_highway_can::auto_static_cast;
 
-  int32_t location_frame_id = id - location_base_id_;
+  int32_t location_frame_id = (id - location_base_id_) / 256;
   if (location_frame_id >= 0 && location_frame_id <= kCountLocations) {
     Location l;
     l.id = location_frame_id;
@@ -158,6 +175,8 @@ void Receiver::process(std_msgs::msg::Header header, const FrameId & id, Message
       message.signals["l1_elevation_angle_quality"].value);
     auto_static_cast(
       l.location1.azimuthal_partner_id, message.signals["l1_azimuthal_partner_id"].value);
+    auto_static_cast(
+      l.location1.measurement_status, message.signals["l1_measurement_status"].value);
 
     auto_static_cast(
       l.location2.radial_distance, message.signals["l2_radial_distance"].value);
@@ -195,6 +214,47 @@ void Receiver::process(std_msgs::msg::Header header, const FrameId & id, Message
       message.signals["l2_elevation_angle_quality"].value);
     auto_static_cast(
       l.location2.azimuthal_partner_id, message.signals["l2_azimuthal_partner_id"].value);
+    auto_static_cast(
+      l.location2.measurement_status, message.signals["l2_measurement_status"].value);
+
+    auto_static_cast(
+      l.location3.radial_distance, message.signals["l3_radial_distance"].value);
+    auto_static_cast(
+      l.location3.radial_velocity, message.signals["l3_radial_velocity"].value);
+    auto_static_cast(
+      l.location3.azimuth_angle,
+      message.signals["l3_azimuth_angle"].value * kDegToRad);
+    auto_static_cast(
+      l.location3.elevation_angle, message.signals["l3_elevation_angle"].value * kDegToRad);
+    auto_static_cast(
+      l.location3.radial_distance_variance,
+      message.signals["l3_radial_distance_variance"].value);
+    auto_static_cast(
+      l.location3.radial_velocity_variance,
+      message.signals["l3_radial_velocity_variance"].value);
+    auto_static_cast(
+      l.location3.azimuth_angle_variance,
+      message.signals["l3_azimuth_angle_variance"].value * kDegToRad * kDegToRad);
+    auto_static_cast(
+      l.location3.elevation_angle_variance,
+      message.signals["l3_elevation_angle_variance"].value * kDegToRad * kDegToRad);
+    auto_static_cast(
+      l.location3.radial_distance_velocity_covariance,
+      message.signals["l3_radial_distance_velocity_covariance"].value);
+    auto_static_cast(l.location3.rcs, message.signals["l3_rcs"].value);
+    auto_static_cast(l.location3.rssi, message.signals["l3_rssi"].value);
+    auto_static_cast(
+      l.location3.radial_distance_velocity_quality,
+      message.signals["l3_radial_distance_velocity_quality"].value);
+    auto_static_cast(
+      l.location3.azimuth_angle_quality, message.signals["l3_azimuth_angle_quality"].value);
+    auto_static_cast(
+      l.location3.elevation_angle_quality,
+      message.signals["l3_elevation_angle_quality"].value);
+    auto_static_cast(
+      l.location3.azimuthal_partner_id, message.signals["l3_azimuthal_partner_id"].value);
+    auto_static_cast(
+      l.location3.measurement_status, message.signals["l3_measurement_status"].value);
     locations_[l.id] = l;
   }
 }
@@ -256,6 +316,7 @@ void Receiver::publish_pcl()
     if (location) {
       locations_pcl.emplace_back(location->location1);
       locations_pcl.emplace_back(location->location2);
+      locations_pcl.emplace_back(location->location3);
     }
   }
 
@@ -269,7 +330,7 @@ void Receiver::declare_and_get_parameters()
   rcl_interfaces::msg::ParameterDescriptor param_desc;
 
   param_desc.description = "CAN frame id of first location message";
-  declare_parameter<int>("location_base_id", 0x208, param_desc);
+  declare_parameter<int32_t>("location_base_id", 0x18FF04B0, param_desc);
   location_base_id_ = get_parameter("location_base_id").as_int();
 
   param_desc.description =

@@ -33,3 +33,5 @@ float32 azimuthal_partner_id
 float32 rcs
 # Received Signal Strength Indication (RSSI) [no unit]
 float32 rssi
+
+float32 measurement_status

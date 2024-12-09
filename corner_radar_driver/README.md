@@ -8,9 +8,10 @@ interpreted can be found in the documentation that has been provided together wi
 
 ## Supported devices
 
-| **Device name** | **Part Number** | **Description** |
-| -| - | - |
-| CR5CP LGU | 0 203 3BB 172 - 02 | - Radar sensor with up to 170 locations <br> |
+| **Device name** | **Part Number** | **Description** | **Supported by commit** |
+| - | - | - | - |
+| Bosch Corner LGU Sensor | 02033BB172–02 | - Radar sensor with up to 170 locations | [6c382d8](https://github.com/bosch-engineering/corner_radar_driver/commit/6c382d8a55e7705e121312974cae584b00249a27) <br> |
+| Bosch Corner LGU Sensor | nbd | - Radar sensor with up to 255 locations | [humble-devel](https://github.com/bosch-engineering/corner_radar_driver/tree/humble-devel) <br> |
 
 Contact: In case of issues with the driver create an issue in the corner_radar_driver GitHub
 repository.

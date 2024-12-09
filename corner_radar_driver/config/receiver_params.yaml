@@ -14,4 +14,4 @@ corner_radar_driver_receiver:
     # TF frame id for all published messages of the receiver
     node_frame_id: base_link
     # CAN frame id of first location message
-    location_base_id: 0x208
+    location_base_id: 0x18FF04B0
