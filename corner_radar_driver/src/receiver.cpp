@@ -259,8 +259,13 @@ void Receiver::process(std_msgs::msg::Header header, const FrameId & id, Message
   }
 }
 
-bool Receiver::filter(const Location & /*location*/)
+bool Receiver::filter(const Location & location)
 {
+  if (location.location1.radial_distance == 0 && location.location2.radial_distance == 0 &&
+    location.location3.radial_distance == 0)
+  {
+    return true;
+  }
   return false;
 }
 
@@ -314,9 +319,16 @@ void Receiver::publish_pcl()
 
   for (const auto & location : locations_) {
     if (location) {
-      locations_pcl.emplace_back(location->location1);
-      locations_pcl.emplace_back(location->location2);
-      locations_pcl.emplace_back(location->location3);
+      // Filter pointcloud to exclude zero locations
+      if (location->location1.radial_distance != 0) {
+        locations_pcl.emplace_back(location->location1);
+      }
+      if (location->location2.radial_distance != 0) {
+        locations_pcl.emplace_back(location->location2);
+      }
+      if (location->location3.radial_distance != 0) {
+        locations_pcl.emplace_back(location->location3);
+      }
     }
   }
 

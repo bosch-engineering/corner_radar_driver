@@ -18,15 +18,23 @@
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
+#include "corner_radar_driver/pcl_point_location.hpp"
 #include "corner_radar_driver/receiver.hpp"
 #include "off_highway_can/helper.hpp"
 
+#include "pcl_conversions/pcl_conversions.h"
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+
 #include "ros2_socketcan_msgs/msg/fd_frame.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 
 using off_highway_can::auto_static_cast;
 using namespace std::chrono_literals;
 
 static constexpr double kDegToRad = std::numbers::pi / 180.0;
+// CAN ID offset between two locations
+static constexpr size_t location_id_offset = 256;
 
 inline double sgn(double x)
 {
@@ -52,9 +60,9 @@ public:
     // Initialize publisher
     publisher_ = this->create_publisher<ros2_socketcan_msgs::msg::FdFrame>("from_can_bus_fd", 1);
 
-    // Publish locations to from_can_bus
+    // Publish locations to from_can_bus_fd
     for (corner_radar_driver_msgs::msg::Location test_location : test_locations.locations) {
-      auto_static_cast(can_msg_location.id, 0x18FF04B0 + test_location.id);
+      auto_static_cast(can_msg_location.id, 0x18FF04B0 + test_location.id * location_id_offset);
       auto_static_cast(can_msg_location.header.stamp, now());
       off_highway_can::Message & location_msg = msg_def[can_msg_location.id];
       auto_static_cast(location_msg.signals["crc_index"].value, test_location.crc);
@@ -211,6 +219,11 @@ public:
     return defined_location_ids;
   }
 
+  void override_location_ids(uint8_t loc_ids)
+  {
+    defined_location_ids = loc_ids;
+  }
+
 protected:
   uint8_t defined_location_ids = 0;
 
@@ -255,6 +268,43 @@ private:
   bool locations_updated_;
 };  // LocationsSubscriber
 
+class PclSubscriber : public rclcpp::Node
+{
+public:
+  PclSubscriber()
+  : Node("corner_radar_driver_pcl_sub"), pcl_updated_(false)
+  {
+    subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "locations_pcl", 1,
+      std::bind(&PclSubscriber::pclCallback, this, std::placeholders::_1));
+  }
+
+  sensor_msgs::msg::PointCloud2 get_pcl()
+  {
+    return received_pcl_;
+  }
+
+  inline bool locationsUpdated()
+  {
+    return pcl_updated_;
+  }
+
+  inline void resetLocationsIndicator()
+  {
+    pcl_updated_ = false;
+  }
+
+private:
+  void pclCallback(const sensor_msgs::msg::PointCloud2 msg)
+  {
+    received_pcl_ = msg;
+    pcl_updated_ = true;
+  }
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscriber_;
+  sensor_msgs::msg::PointCloud2 received_pcl_;
+  bool pcl_updated_;
+};  // PclSubscriber
+
 class RandomQuantizedGenerator
 {
 public:
@@ -293,22 +343,28 @@ protected:
     ASSERT_EQ(node_->get_parameter("allowed_age").as_double(), 1.0);
 
     locations_subscriber_ = std::make_shared<LocationsSubscriber>();
+    pcl_subscriber_ = std::make_shared<PclSubscriber>();
   }
 
   void publish_locations(corner_radar_driver_msgs::msg::LocationArray locations);
   corner_radar_driver_msgs::msg::LocationArray get_locations();
+  sensor_msgs::msg::PointCloud2 get_pcl();
+  void verify_pcl(sensor_msgs::msg::PointCloud2 received_pcl);
   void verify_locations(
     corner_radar_driver_msgs::msg::LocationArray test_locations,
     corner_radar_driver_msgs::msg::LocationArray received_locations);
 
+  std::shared_ptr<LocationsPublisher> locations_publisher_;
+
 private:
   void spin_receiver(const std::chrono::nanoseconds & duration);
   void spin_subscriber(const std::chrono::nanoseconds & duration);
+  void spin_subscriber_pcl(const std::chrono::nanoseconds & duration);
 
   std::shared_ptr<corner_radar_driver::Receiver> node_;
 
-  std::shared_ptr<LocationsPublisher> locations_publisher_;
   std::shared_ptr<LocationsSubscriber> locations_subscriber_;
+  std::shared_ptr<PclSubscriber> pcl_subscriber_;
 };
 
 void TestRadarReceiver::publish_locations(corner_radar_driver_msgs::msg::LocationArray locations)
@@ -324,6 +380,14 @@ corner_radar_driver_msgs::msg::LocationArray TestRadarReceiver::get_locations()
   corner_radar_driver_msgs::msg::LocationArray subscribed_locations_ =
     locations_subscriber_->get_locations();
   return subscribed_locations_;
+}
+
+sensor_msgs::msg::PointCloud2 TestRadarReceiver::get_pcl()
+{
+  spin_subscriber_pcl(500ms);
+  sensor_msgs::msg::PointCloud2 subscribed_pcl_ =
+    pcl_subscriber_->get_pcl();
+  return subscribed_pcl_;
 }
 
 void TestRadarReceiver::spin_receiver(const std::chrono::nanoseconds & duration)
@@ -343,6 +407,31 @@ void TestRadarReceiver::spin_subscriber(const std::chrono::nanoseconds & duratio
   }
 }
 
+void TestRadarReceiver::spin_subscriber_pcl(const std::chrono::nanoseconds & duration)
+{
+  rclcpp::Time start_time = node_->now();
+  while (rclcpp::ok() && node_->now() - start_time <= duration) {
+    rclcpp::spin_some(pcl_subscriber_);
+    rclcpp::sleep_for(100ms);
+  }
+}
+
+void TestRadarReceiver::verify_pcl(sensor_msgs::msg::PointCloud2 received_pcl)
+{
+  // Convert the PointCloud2 message to a PCL point cloud
+  pcl::PointCloud<corner_radar_driver::PclPointLocation> pcl_cloud;
+  pcl::fromROSMsg(received_pcl, pcl_cloud);
+
+  // Check if each point from the pcl has value different than zero
+  for (const auto & point : pcl_cloud.points) {
+    bool check = false;
+    if (point.x == 0 && point.y == 0 && point.z == 0) {
+      check = true;
+    }
+    EXPECT_FALSE(check);
+  }
+}
+
 void TestRadarReceiver::verify_locations(
   corner_radar_driver_msgs::msg::LocationArray test_locations,
   corner_radar_driver_msgs::msg::LocationArray received_locations)
@@ -351,6 +440,8 @@ void TestRadarReceiver::verify_locations(
   EXPECT_EQ(node_->count_subscribers("from_can_bus_fd"), 1U);
   EXPECT_EQ(node_->count_publishers("locations"), 1U);
   EXPECT_EQ(node_->count_subscribers("locations"), 1U);
+  EXPECT_EQ(node_->count_publishers("locations_pcl"), 1U);
+  EXPECT_EQ(node_->count_subscribers("locations_pcl"), 1U);
 
   // Check locations
   uint8_t found_location_ids = 0;
@@ -511,6 +602,416 @@ void TestRadarReceiver::verify_locations(
   EXPECT_EQ(locations_publisher_->get_defined_location_ids(), found_location_ids);
 }
 
+TEST_F(TestRadarReceiver, testRandomZeroAllLocations) {
+  corner_radar_driver_msgs::msg::LocationArray test_locations;
+  corner_radar_driver_msgs::msg::Location test_location;
+
+  corner_radar_driver_msgs::msg::LocationArray filtered_test_locations;
+
+  const size_t send_locations = 10;
+
+  // Use time as seed to generate random values
+  time_t current_time;
+  std::time(&current_time);
+  std::srand(current_time);
+
+  // Randomize the number of locations that will have zero values
+  // (std::rand() % (max - min + 1) + min)
+  size_t zero_values = (std::rand() % ((send_locations / 2) + 1));
+
+  for (size_t i = 0; i < send_locations; i++) {
+    test_location.id = i;
+    test_location.location1.radial_distance = 300.0;
+    test_location.location1.radial_distance_variance = 0.01;
+    test_location.location1.radial_velocity = -50.0;
+    test_location.location1.radial_velocity_variance = 0.01;
+    test_location.location1.radial_distance_velocity_covariance = 0.03;
+    test_location.location1.radial_distance_velocity_quality = 120.0;
+    test_location.location1.elevation_angle = 25.0 * kDegToRad;
+    test_location.location1.elevation_angle_quality = 50.0;
+    test_location.location1.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location1.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location1.azimuth_angle_quality = 100.0;
+    test_location.location1.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location1.azimuthal_partner_id = 24.0;
+    test_location.location1.rcs = 70;
+    test_location.location1.rssi = 12.5;
+    test_location.location1.measurement_status = 4;
+
+    test_location.location2.radial_distance = 250.0;
+    test_location.location2.radial_distance_variance = 0.04;
+    test_location.location2.radial_velocity = 40.0;
+    test_location.location2.radial_velocity_variance = 0.001;
+    test_location.location2.radial_distance_velocity_covariance = -0.03;
+    test_location.location2.radial_distance_velocity_quality = 20.0;
+    test_location.location2.elevation_angle = 37.7 * kDegToRad;
+    test_location.location2.elevation_angle_quality = 10.0;
+    test_location.location2.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location2.azimuth_angle = -45.0 * kDegToRad;
+    test_location.location2.azimuth_angle_quality = 250.0;
+    test_location.location2.azimuth_angle_variance = 0.9 * kDegToRad * kDegToRad;
+    test_location.location2.azimuthal_partner_id = 1020.0;
+    test_location.location2.rcs = 25.8;
+    test_location.location2.rssi = 59.0;
+    test_location.location2.measurement_status = 10;
+
+    test_location.location3.radial_distance = 5.8;
+    test_location.location3.radial_distance_variance = 0.01;
+    test_location.location3.radial_velocity = -50.0;
+    test_location.location3.radial_velocity_variance = 0.01;
+    test_location.location3.radial_distance_velocity_covariance = 0.03;
+    test_location.location3.radial_distance_velocity_quality = 120.0;
+    test_location.location3.elevation_angle = 25.0 * kDegToRad;
+    test_location.location3.elevation_angle_quality = 50.0;
+    test_location.location3.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location3.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location3.azimuth_angle_quality = 100.0;
+    test_location.location3.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location3.azimuthal_partner_id = 24.0;
+    test_location.location3.rcs = 67.6;
+    test_location.location3.rssi = 12.5;
+    test_location.location3.measurement_status = 4;
+    test_locations.locations.push_back(test_location);
+  }
+
+  for (size_t i = 0; i < zero_values; i++) {
+    // (std::rand() % (max - min + 1) + min)
+    size_t rand_pos = (std::rand() % (send_locations + 1));
+
+    // pick random number again if the location is already zero assigned
+    while (test_locations.locations[rand_pos].location1.radial_distance == 0 &&
+      test_locations.locations[rand_pos].location2.radial_distance == 0 &&
+      test_locations.locations[rand_pos].location3.radial_distance == 0)
+    {
+      rand_pos = (std::rand() % (send_locations + 1));
+    }
+
+    test_locations.locations[rand_pos].location1.radial_distance = 0;
+    test_locations.locations[rand_pos].location2.radial_distance = 0;
+    test_locations.locations[rand_pos].location3.radial_distance = 0;
+  }
+
+  // Publish all locations including zero value ones
+  publish_locations(test_locations);
+
+  // Filter test_locations to remove zero value ones for testing
+  for (size_t i = 0; i < test_locations.locations.size(); i++) {
+    if (test_locations.locations[i].location1.radial_distance != 0 ||
+      test_locations.locations[i].location2.radial_distance != 0 ||
+      test_locations.locations[i].location3.radial_distance != 0)
+    {
+      filtered_test_locations.locations.push_back(test_locations.locations[i]);
+    }
+  }
+
+  locations_publisher_->override_location_ids(send_locations - zero_values);
+  verify_locations(filtered_test_locations, get_locations());
+  verify_pcl(get_pcl());
+}
+
+TEST_F(TestRadarReceiver, testRandomZeroLocation1) {
+  corner_radar_driver_msgs::msg::LocationArray test_locations;
+  corner_radar_driver_msgs::msg::Location test_location;
+
+  corner_radar_driver_msgs::msg::LocationArray filtered_test_locations;
+
+  const size_t send_locations = 10;
+
+  // Use time as seed to generate random values
+  time_t current_time;
+  std::time(&current_time);
+  std::srand(current_time);
+
+  // Randomize the number of locations that will have zero values
+  // (std::rand() % (max - min + 1) + min)
+  size_t zero_values = (std::rand() % ((send_locations / 2) + 1));
+
+  for (size_t i = 0; i < send_locations; i++) {
+    test_location.id = i;
+    test_location.location1.radial_distance = 300.0;
+    test_location.location1.radial_distance_variance = 0.01;
+    test_location.location1.radial_velocity = -50.0;
+    test_location.location1.radial_velocity_variance = 0.01;
+    test_location.location1.radial_distance_velocity_covariance = 0.03;
+    test_location.location1.radial_distance_velocity_quality = 120.0;
+    test_location.location1.elevation_angle = 25.0 * kDegToRad;
+    test_location.location1.elevation_angle_quality = 50.0;
+    test_location.location1.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location1.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location1.azimuth_angle_quality = 100.0;
+    test_location.location1.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location1.azimuthal_partner_id = 24.0;
+    test_location.location1.rcs = 70;
+    test_location.location1.rssi = 12.5;
+    test_location.location1.measurement_status = 4;
+
+    test_location.location2.radial_distance = 250.0;
+    test_location.location2.radial_distance_variance = 0.04;
+    test_location.location2.radial_velocity = 40.0;
+    test_location.location2.radial_velocity_variance = 0.001;
+    test_location.location2.radial_distance_velocity_covariance = -0.03;
+    test_location.location2.radial_distance_velocity_quality = 20.0;
+    test_location.location2.elevation_angle = 37.7 * kDegToRad;
+    test_location.location2.elevation_angle_quality = 10.0;
+    test_location.location2.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location2.azimuth_angle = -45.0 * kDegToRad;
+    test_location.location2.azimuth_angle_quality = 250.0;
+    test_location.location2.azimuth_angle_variance = 0.9 * kDegToRad * kDegToRad;
+    test_location.location2.azimuthal_partner_id = 1020.0;
+    test_location.location2.rcs = 25.8;
+    test_location.location2.rssi = 59.0;
+    test_location.location2.measurement_status = 10;
+
+    test_location.location3.radial_distance = 5.8;
+    test_location.location3.radial_distance_variance = 0.01;
+    test_location.location3.radial_velocity = -50.0;
+    test_location.location3.radial_velocity_variance = 0.01;
+    test_location.location3.radial_distance_velocity_covariance = 0.03;
+    test_location.location3.radial_distance_velocity_quality = 120.0;
+    test_location.location3.elevation_angle = 25.0 * kDegToRad;
+    test_location.location3.elevation_angle_quality = 50.0;
+    test_location.location3.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location3.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location3.azimuth_angle_quality = 100.0;
+    test_location.location3.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location3.azimuthal_partner_id = 24.0;
+    test_location.location3.rcs = 67.6;
+    test_location.location3.rssi = 12.5;
+    test_location.location3.measurement_status = 4;
+    test_locations.locations.push_back(test_location);
+  }
+
+  for (size_t i = 0; i < zero_values; i++) {
+    // (std::rand() % (max - min + 1) + min)
+    size_t rand_pos = (std::rand() % (send_locations + 1));
+
+    // pick random number again if the location is already zero assigned
+    while (test_locations.locations[rand_pos].location1.radial_distance == 0) {
+      rand_pos = (std::rand() % (send_locations + 1));
+    }
+
+    test_locations.locations[rand_pos].location1.radial_distance = 0;
+  }
+
+  // Publish all locations including zero value ones
+  publish_locations(test_locations);
+
+  // Filter test_locations to remove zero value ones for testing
+  for (size_t i = 0; i < test_locations.locations.size(); i++) {
+    if (test_locations.locations[i].location1.radial_distance != 0 ||
+      test_locations.locations[i].location2.radial_distance != 0 ||
+      test_locations.locations[i].location3.radial_distance != 0)
+    {
+      filtered_test_locations.locations.push_back(test_locations.locations[i]);
+    }
+  }
+
+  verify_locations(filtered_test_locations, get_locations());
+  verify_pcl(get_pcl());
+}
+
+TEST_F(TestRadarReceiver, testRandomZeroLocation2) {
+  corner_radar_driver_msgs::msg::LocationArray test_locations;
+  corner_radar_driver_msgs::msg::Location test_location;
+
+  corner_radar_driver_msgs::msg::LocationArray filtered_test_locations;
+
+  const size_t send_locations = 10;
+
+  // Use time as seed to generate random values
+  time_t current_time;
+  std::time(&current_time);
+  std::srand(current_time);
+
+  // Randomize the number of locations that will have zero values
+  // (std::rand() % (max - min + 1) + min)
+  size_t zero_values = (std::rand() % ((send_locations / 2) + 1));
+
+  for (size_t i = 0; i < send_locations; i++) {
+    test_location.id = i;
+    test_location.location1.radial_distance = 300.0;
+    test_location.location1.radial_distance_variance = 0.01;
+    test_location.location1.radial_velocity = -50.0;
+    test_location.location1.radial_velocity_variance = 0.01;
+    test_location.location1.radial_distance_velocity_covariance = 0.03;
+    test_location.location1.radial_distance_velocity_quality = 120.0;
+    test_location.location1.elevation_angle = 25.0 * kDegToRad;
+    test_location.location1.elevation_angle_quality = 50.0;
+    test_location.location1.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location1.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location1.azimuth_angle_quality = 100.0;
+    test_location.location1.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location1.azimuthal_partner_id = 24.0;
+    test_location.location1.rcs = 70;
+    test_location.location1.rssi = 12.5;
+    test_location.location1.measurement_status = 4;
+
+    test_location.location2.radial_distance = 250.0;
+    test_location.location2.radial_distance_variance = 0.04;
+    test_location.location2.radial_velocity = 40.0;
+    test_location.location2.radial_velocity_variance = 0.001;
+    test_location.location2.radial_distance_velocity_covariance = -0.03;
+    test_location.location2.radial_distance_velocity_quality = 20.0;
+    test_location.location2.elevation_angle = 37.7 * kDegToRad;
+    test_location.location2.elevation_angle_quality = 10.0;
+    test_location.location2.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location2.azimuth_angle = -45.0 * kDegToRad;
+    test_location.location2.azimuth_angle_quality = 250.0;
+    test_location.location2.azimuth_angle_variance = 0.9 * kDegToRad * kDegToRad;
+    test_location.location2.azimuthal_partner_id = 1020.0;
+    test_location.location2.rcs = 25.8;
+    test_location.location2.rssi = 59.0;
+    test_location.location2.measurement_status = 10;
+
+    test_location.location3.radial_distance = 5.8;
+    test_location.location3.radial_distance_variance = 0.01;
+    test_location.location3.radial_velocity = -50.0;
+    test_location.location3.radial_velocity_variance = 0.01;
+    test_location.location3.radial_distance_velocity_covariance = 0.03;
+    test_location.location3.radial_distance_velocity_quality = 120.0;
+    test_location.location3.elevation_angle = 25.0 * kDegToRad;
+    test_location.location3.elevation_angle_quality = 50.0;
+    test_location.location3.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location3.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location3.azimuth_angle_quality = 100.0;
+    test_location.location3.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location3.azimuthal_partner_id = 24.0;
+    test_location.location3.rcs = 67.6;
+    test_location.location3.rssi = 12.5;
+    test_location.location3.measurement_status = 4;
+    test_locations.locations.push_back(test_location);
+  }
+
+  for (size_t i = 0; i < zero_values; i++) {
+    // (std::rand() % (max - min + 1) + min)
+    size_t rand_pos = (std::rand() % (send_locations + 1));
+
+    // pick random number again if the location is already zero assigned
+    while (test_locations.locations[rand_pos].location2.radial_distance == 0) {
+      rand_pos = (std::rand() % (send_locations + 1));
+    }
+
+    test_locations.locations[rand_pos].location2.radial_distance = 0;
+  }
+
+  // Publish all locations including zero value ones
+  publish_locations(test_locations);
+
+  // Filter test_locations to remove zero value ones for testing
+  for (size_t i = 0; i < test_locations.locations.size(); i++) {
+    if (test_locations.locations[i].location1.radial_distance != 0 ||
+      test_locations.locations[i].location2.radial_distance != 0 ||
+      test_locations.locations[i].location3.radial_distance != 0)
+    {
+      filtered_test_locations.locations.push_back(test_locations.locations[i]);
+    }
+  }
+
+  verify_locations(filtered_test_locations, get_locations());
+  verify_pcl(get_pcl());
+}
+
+TEST_F(TestRadarReceiver, testRandomZeroLocation3) {
+  corner_radar_driver_msgs::msg::LocationArray test_locations;
+  corner_radar_driver_msgs::msg::Location test_location;
+
+  corner_radar_driver_msgs::msg::LocationArray filtered_test_locations;
+
+  const size_t send_locations = 10;
+
+  // Use time as seed to generate random values
+  time_t current_time;
+  std::time(&current_time);
+  std::srand(current_time);
+
+  // Randomize the number of locations that will have zero values
+  // (std::rand() % (max - min + 1) + min)
+  size_t zero_values = (std::rand() % ((send_locations / 2) + 1));
+
+  for (size_t i = 0; i < send_locations; i++) {
+    test_location.id = i;
+    test_location.location1.radial_distance = 300.0;
+    test_location.location1.radial_distance_variance = 0.01;
+    test_location.location1.radial_velocity = -50.0;
+    test_location.location1.radial_velocity_variance = 0.01;
+    test_location.location1.radial_distance_velocity_covariance = 0.03;
+    test_location.location1.radial_distance_velocity_quality = 120.0;
+    test_location.location1.elevation_angle = 25.0 * kDegToRad;
+    test_location.location1.elevation_angle_quality = 50.0;
+    test_location.location1.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location1.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location1.azimuth_angle_quality = 100.0;
+    test_location.location1.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location1.azimuthal_partner_id = 24.0;
+    test_location.location1.rcs = 70;
+    test_location.location1.rssi = 12.5;
+    test_location.location1.measurement_status = 4;
+
+    test_location.location2.radial_distance = 250.0;
+    test_location.location2.radial_distance_variance = 0.04;
+    test_location.location2.radial_velocity = 40.0;
+    test_location.location2.radial_velocity_variance = 0.001;
+    test_location.location2.radial_distance_velocity_covariance = -0.03;
+    test_location.location2.radial_distance_velocity_quality = 20.0;
+    test_location.location2.elevation_angle = 37.7 * kDegToRad;
+    test_location.location2.elevation_angle_quality = 10.0;
+    test_location.location2.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location2.azimuth_angle = -45.0 * kDegToRad;
+    test_location.location2.azimuth_angle_quality = 250.0;
+    test_location.location2.azimuth_angle_variance = 0.9 * kDegToRad * kDegToRad;
+    test_location.location2.azimuthal_partner_id = 1020.0;
+    test_location.location2.rcs = 25.8;
+    test_location.location2.rssi = 59.0;
+    test_location.location2.measurement_status = 10;
+
+    test_location.location3.radial_distance = 5.8;
+    test_location.location3.radial_distance_variance = 0.01;
+    test_location.location3.radial_velocity = -50.0;
+    test_location.location3.radial_velocity_variance = 0.01;
+    test_location.location3.radial_distance_velocity_covariance = 0.03;
+    test_location.location3.radial_distance_velocity_quality = 120.0;
+    test_location.location3.elevation_angle = 25.0 * kDegToRad;
+    test_location.location3.elevation_angle_quality = 50.0;
+    test_location.location3.elevation_angle_variance = 0.01 * kDegToRad * kDegToRad;
+    test_location.location3.azimuth_angle = 45.0 * kDegToRad;
+    test_location.location3.azimuth_angle_quality = 100.0;
+    test_location.location3.azimuth_angle_variance = 0.05 * kDegToRad * kDegToRad;
+    test_location.location3.azimuthal_partner_id = 24.0;
+    test_location.location3.rcs = 67.6;
+    test_location.location3.rssi = 12.5;
+    test_location.location3.measurement_status = 4;
+    test_locations.locations.push_back(test_location);
+  }
+
+  for (size_t i = 0; i < zero_values; i++) {
+    // (std::rand() % (max - min + 1) + min)
+    size_t rand_pos = (std::rand() % (send_locations + 1));
+
+    // pick random number again if the location is already zero assigned
+    while (test_locations.locations[rand_pos].location3.radial_distance == 0) {
+      rand_pos = (std::rand() % (send_locations + 1));
+    }
+
+    test_locations.locations[rand_pos].location3.radial_distance = 0;
+  }
+
+  // Publish all locations including zero value ones
+  publish_locations(test_locations);
+
+  // Filter test_locations to remove zero value ones for testing
+  for (size_t i = 0; i < test_locations.locations.size(); i++) {
+    if (test_locations.locations[i].location1.radial_distance != 0 ||
+      test_locations.locations[i].location2.radial_distance != 0 ||
+      test_locations.locations[i].location3.radial_distance != 0)
+    {
+      filtered_test_locations.locations.push_back(test_locations.locations[i]);
+    }
+  }
+
+  verify_locations(filtered_test_locations, get_locations());
+  verify_pcl(get_pcl());
+}
+
 TEST_F(TestRadarReceiver, testLocationZero) {
   corner_radar_driver_msgs::msg::LocationArray test_locations;
   corner_radar_driver_msgs::msg::Location test_location;
@@ -569,6 +1070,7 @@ TEST_F(TestRadarReceiver, testLocationZero) {
   test_locations.locations.push_back(test_location);
 
   publish_locations(test_locations);
+  locations_publisher_->override_location_ids(0);
   verify_locations(test_locations, get_locations());
 }
 
@@ -638,7 +1140,7 @@ TEST_F(TestRadarReceiver, testLocationsMinValues) {
   corner_radar_driver_msgs::msg::LocationArray test_locations;
   corner_radar_driver_msgs::msg::Location test_location;
   test_location.id = 0;
-  test_location.location1.radial_distance = 0.0;
+  test_location.location1.radial_distance = 0.1;
   test_location.location1.radial_distance_variance = 0.0;
   test_location.location1.radial_velocity = -110.0;
   test_location.location1.radial_velocity_variance = 0.0;
@@ -655,7 +1157,7 @@ TEST_F(TestRadarReceiver, testLocationsMinValues) {
   test_location.location1.rssi = 0.0;
   test_location.location1.measurement_status = 0.0;
 
-  test_location.location2.radial_distance = 0.0;
+  test_location.location2.radial_distance = 0.1;
   test_location.location2.radial_distance_variance = 0.0;
   test_location.location2.radial_velocity = -110.0;
   test_location.location2.radial_velocity_variance = 0.0;
@@ -672,7 +1174,7 @@ TEST_F(TestRadarReceiver, testLocationsMinValues) {
   test_location.location2.rssi = 0.0;
   test_location.location2.measurement_status = 0.0;
 
-  test_location.location3.radial_distance = 0.0;
+  test_location.location3.radial_distance = 0.1;
   test_location.location3.radial_distance_variance = 0.0;
   test_location.location3.radial_velocity = -110.0;
   test_location.location3.radial_velocity_variance = 0.0;
@@ -769,7 +1271,7 @@ TEST_F(TestRadarReceiver, test85RandomValidLocations) {
 
     test_location.id = id;
     test_location.location1.radial_distance =
-      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
+      RandomQuantizedGenerator{0.01, 0.1, 327.67}(rng);
     test_location.location1.radial_distance_variance =
       RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
     test_location.location1.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);
@@ -798,7 +1300,7 @@ TEST_F(TestRadarReceiver, test85RandomValidLocations) {
     test_location.location1.measurement_status = RandomQuantizedGenerator{1.0, 0.0, 15.0}(rng);
 
     test_location.location2.radial_distance =
-      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
+      RandomQuantizedGenerator{0.01, 0.1, 327.67}(rng);
     test_location.location2.radial_distance_variance =
       RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
     test_location.location2.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);
@@ -827,7 +1329,7 @@ TEST_F(TestRadarReceiver, test85RandomValidLocations) {
     test_location.location2.measurement_status = RandomQuantizedGenerator{1.0, 0.0, 15.0}(rng);
 
     test_location.location3.radial_distance =
-      RandomQuantizedGenerator{0.01, 0.0, 327.67}(rng);
+      RandomQuantizedGenerator{0.01, 0.1, 327.67}(rng);
     test_location.location3.radial_distance_variance =
       RandomQuantizedGenerator{5e-005, 0.0, 0.05115}(rng);
     test_location.location3.radial_velocity = RandomQuantizedGenerator{0.01, -110.0, 55.0}(rng);

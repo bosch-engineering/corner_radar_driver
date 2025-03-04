@@ -23,15 +23,16 @@ repository.
 The radar receiver decodes CAN FD frames into a location list, manages the current list and
 publishes it cyclically.
 
-All received messages are checked for their age (message not older than parameter `allowed_age`). If
-this check does not succeed the received message is not further processed and skipped.
+All received messages are checked to be valid (no messages with zero values on all fields) and
+for their age (message not older than parameter `allowed_age`). If these checks do not succeed
+the received message is not further processed and is skipped.
 
 The relevant radar CAN FD frame IDs to process are specified by the `location_base_id`. The base ID
 should correspond to the first location frame ID of the radar CAN node and needs to be adapted for
 the specific bus setup.
 
 The location list is published as a list of radar readings or as a point cloud and contains up to
-170 locations.
+255 locations.
 
 #### Subscribed Topics
 
