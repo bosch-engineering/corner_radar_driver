@@ -14,7 +14,7 @@ These packages are developed for ROS 2 Humble on Ubuntu 22.04.
 The CAN communication based sensors were tested in a 500 kBd CAN configuration.
 
 This driver uses the
-[off_highway_can](https://index.ros.org/p/off_highway_can/github-bosch-engineering-off_highway_sensor_drivers/)
+[off_highway_can](https://index.ros.org/p/off_highway_can/)
 package for en- and decoding of CAN FD frames.
 
 For further information, have a look at the linked package readmes.
