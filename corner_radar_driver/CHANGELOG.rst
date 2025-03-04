@@ -2,8 +2,8 @@
 Changelog for package corner_radar_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-03-04)
+------------------
 * Filter locations with zeros
 * Update locations receiver to the new DBC structure
   Allows now to read out three locations from one CAN message.
