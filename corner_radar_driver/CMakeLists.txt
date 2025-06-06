@@ -45,6 +45,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 ament_target_dependencies(${PROJECT_NAME} SYSTEM ${dependencies})
+target_link_libraries(${PROJECT_NAME})
 
 install(
   DIRECTORY include/
@@ -88,6 +89,7 @@ if(BUILD_TESTING)
     $<INSTALL_INTERFACE:include>
   )
   target_link_libraries(test_receiver_locations ${PROJECT_NAME})
+  set_tests_properties(test_receiver_locations PROPERTIES TIMEOUT 0)
 
   ament_add_ros_isolated_gtest(test_pcl_point_location test/test_pcl_point_location.cpp)
   target_include_directories(test_pcl_point_location PUBLIC

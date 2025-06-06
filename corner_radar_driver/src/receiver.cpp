@@ -12,19 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "corner_radar_driver/receiver.hpp"
-
-#include <numbers>
-#include <regex>
-#include <stdexcept>
-
-#include "pcl_conversions/pcl_conversions.h"
-
-#include "diagnostic_msgs/msg/diagnostic_status.hpp"
-
-#include "off_highway_can/helper.hpp"
 
 #include "corner_radar_driver/pcl_point_location.hpp"
+#include "corner_radar_driver/receiver.hpp"
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "off_highway_can/helper.hpp"
+
 
 namespace corner_radar_driver
 {
@@ -32,7 +25,9 @@ namespace corner_radar_driver
 static constexpr double kDegToRad = std::numbers::pi / 180.0;
 
 Receiver::Receiver(const rclcpp::NodeOptions & options)
-: off_highway_can::Receiver("receiver", options, true)
+: off_highway_can::Receiver("receiver", options, true),
+  tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock())),
+  transform_listener_(std::make_shared<tf2_ros::TransformListener>(*tf_buffer_))
 {
   declare_and_get_parameters();
 
@@ -114,11 +109,23 @@ Receiver::Messages Receiver::fillMessageDefinitions()
   l.signals["l3_measurement_status"] = {508, 4, false, false, 1, 0};
 
   // Fill message definitions
-  for (uint8_t i = 0; i < kCountLocations; ++i) {
-    m[location_base_id_ + i * 256] = l;
-    // Replace XX with index in message name
-    auto & name = m[location_base_id_ + i * 256].name;
-    name = std::regex_replace(name, std::regex("XX"), std::to_string(i));
+  for (const auto & sensor_pair : sensors_) {
+    const SensorInfo & info = sensor_pair.second;
+
+    if (!info.active) {continue;}
+
+    uint32_t base_location_id = info.can_fd_source_address;
+    uint16_t num_locations = did_to_loc_number_.at(info.max_number_locations);
+
+    total_number_of_locations_[info.can_fd_source_address & 0x0F] = num_locations;
+    for (uint16_t i = 0; i < num_locations; ++i) {
+      uint32_t id = base_location_id + i * 256;
+      m[id] = l;
+
+      // Replace "XXX" in the message name with the location index
+      auto & name = m[id].name;
+      name = std::regex_replace(name, std::regex("XXX"), std::to_string(i));
+    }
   }
 
   return m;
@@ -128,11 +135,28 @@ void Receiver::process(std_msgs::msg::Header header, const FrameId & id, Message
 {
   using off_highway_can::auto_static_cast;
 
+  auto id_suffix = static_cast<uint16_t>(id & 0xFF);
+  header.frame_id = id_to_sensor_.at(id_suffix);
+  location_base_id_ = sensors_.at(header.frame_id).can_fd_source_address;
+
   int32_t location_frame_id = (id - location_base_id_) / 256;
-  if (location_frame_id >= 0 && location_frame_id <= kCountLocations) {
+
+  if (location_frame_id >= 0 &&
+    location_frame_id < did_to_loc_number_.at(sensors_.at(header.frame_id).max_number_locations))
+  {
     Location l;
-    l.id = location_frame_id;
-    l.header = header;
+
+    uint16_t index =
+      [](const std::array<uint16_t, 4> & number_of_locations, uint8_t counter) -> uint16_t {
+        return std::accumulate(
+          number_of_locations.begin(),
+          number_of_locations.begin() + counter, uint16_t{0});
+      }(total_number_of_locations_, id_suffix & 0x0F);
+
+    uint16_t location_id_in_locations = location_frame_id + index;
+    l.id = location_id_in_locations;
+    l.header.stamp = now();
+    l.header.frame_id = header.frame_id;
 
     // Extract and cast signal values from the message to the location structure
     auto_static_cast(l.crc, message.signals["crc_index"].value);
@@ -287,6 +311,50 @@ void Receiver::manage_locations()
   }
 }
 
+void Receiver::process_location(
+  PclPointLocation & location,
+  std::string & frame_id,
+  pcl::PointCloud<PclPointLocation> & locations_pcl,
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer)
+{
+  try {
+    geometry_msgs::msg::TransformStamped transform_stamped =
+      tf_buffer->lookupTransform("base_link", frame_id, tf2::TimePointZero);
+
+    // Extract translation
+    double tx = transform_stamped.transform.translation.x;
+    double ty = transform_stamped.transform.translation.y;
+    double tz = transform_stamped.transform.translation.z;
+
+    // Extract rotation (quaternion)
+    tf2::Quaternion q(
+      transform_stamped.transform.rotation.x,
+      transform_stamped.transform.rotation.y,
+      transform_stamped.transform.rotation.z,
+      transform_stamped.transform.rotation.w);
+
+    // Convert quaternion to roll, pitch, yaw
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+    // Apply the transform to the point
+    tf2::Vector3 point(location.x, location.y, location.z);
+    tf2::Vector3 transformed_point = tf2::Transform(q, tf2::Vector3(tx, ty, tz)) * point;
+
+    // Update the location with the transformed coordinates
+    PclPointLocation transformed_location(location);
+    transformed_location.x = transformed_point.x();
+    transformed_location.y = transformed_point.y();
+    transformed_location.z = transformed_point.z();
+
+    locations_pcl.emplace_back(transformed_location);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_ERROR(
+      this->get_logger(), "Transform from base_link to %s is not available: %s",
+      frame_id.c_str(), ex.what());
+  }
+}
+
 void Receiver::publish_locations()
 {
   if (pub_locations_->get_subscription_count() == 0) {
@@ -296,13 +364,11 @@ void Receiver::publish_locations()
   Locations msg;
   msg.header.stamp = now();
   msg.header.frame_id = node_frame_id_;
-
   for (const auto & location : locations_) {
     if (location) {
       msg.locations.push_back(*location);
     }
   }
-
   pub_locations_->publish(msg);
 }
 
@@ -317,17 +383,21 @@ void Receiver::publish_pcl()
   locations_pcl.header.frame_id = node_frame_id_;
   pcl_conversions::toPCL(now(), locations_pcl.header.stamp);
 
-  for (const auto & location : locations_) {
+  geometry_msgs::msg::PointStamped point_stamped;
+  for (auto & location : locations_) {
     if (location) {
-      // Filter pointcloud to exclude zero locations
+      std::string frame_id = location->header.frame_id;
       if (location->location1.radial_distance != 0) {
-        locations_pcl.emplace_back(location->location1);
+        PclPointLocation loc1(location->location1);
+        process_location(loc1, frame_id, locations_pcl, tf_buffer_);
       }
       if (location->location2.radial_distance != 0) {
-        locations_pcl.emplace_back(location->location2);
+        PclPointLocation loc2(location->location2);
+        process_location(loc2, frame_id, locations_pcl, tf_buffer_);
       }
       if (location->location3.radial_distance != 0) {
-        locations_pcl.emplace_back(location->location3);
+        PclPointLocation loc3(location->location3);
+        process_location(loc3, frame_id, locations_pcl, tf_buffer_);
       }
     }
   }
@@ -341,20 +411,56 @@ void Receiver::declare_and_get_parameters()
 {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
 
-  param_desc.description = "CAN frame id of first location message";
-  declare_parameter<int32_t>("location_base_id", 0x18FF04B0, param_desc);
-  location_base_id_ = get_parameter("location_base_id").as_int();
-
   param_desc.description =
     "Allowed age corresponding to output cycle time of sensor plus safety margin";
-  declare_parameter<double>("allowed_age", 0.1);
+  declare_parameter<double>("allowed_age", 0.1, param_desc);
   allowed_age_ = get_parameter("allowed_age").as_double();
 
   param_desc.description =
     "Frequency at which current location list (point cloud) is published. Corresponds to ~100 ms "
     "radar sending cycle time.";
-  declare_parameter<double>("publish_frequency", 10.0);
+  declare_parameter<double>("publish_frequency", 10.0, param_desc);
   publish_frequency_ = get_parameter("publish_frequency").as_double();
+
+  declare_parameter<bool>("sensors.sensor1.active", false);
+  sensors_["sensor1"].active = get_parameter("sensors.sensor1.active").as_bool();
+  declare_parameter<int>("sensors.sensor1.max_number_locations", 1);
+  sensors_["sensor1"].max_number_locations =
+    get_parameter("sensors.sensor1.max_number_locations").as_int();
+  declare_parameter<int>("sensors.sensor1.can_fd_source_address", 0x18FF04B0);
+  sensors_["sensor1"].can_fd_source_address =
+    get_parameter("sensors.sensor1.can_fd_source_address").as_int();
+  id_to_sensor_[sensors_["sensor1"].can_fd_source_address & 0xFF] = "sensor1";
+
+  declare_parameter<bool>("sensors.sensor2.active", false);
+  sensors_["sensor2"].active = get_parameter("sensors.sensor2.active").as_bool();
+  declare_parameter<int>("sensors.sensor2.max_number_locations", 1);
+  sensors_["sensor2"].max_number_locations =
+    get_parameter("sensors.sensor2.max_number_locations").as_int();
+  declare_parameter<int>("sensors.sensor2.can_fd_source_address", 0x18FF04B1);
+  sensors_["sensor2"].can_fd_source_address =
+    get_parameter("sensors.sensor2.can_fd_source_address").as_int();
+  id_to_sensor_[sensors_["sensor2"].can_fd_source_address & 0xFF] = "sensor2";
+
+  declare_parameter<bool>("sensors.sensor3.active", false);
+  sensors_["sensor3"].active = get_parameter("sensors.sensor3.active").as_bool();
+  declare_parameter<int>("sensors.sensor3.max_number_locations", 1);
+  sensors_["sensor3"].max_number_locations =
+    get_parameter("sensors.sensor3.max_number_locations").as_int();
+  declare_parameter<int>("sensors.sensor3.can_fd_source_address", 0x18FF04B2);
+  sensors_["sensor3"].can_fd_source_address =
+    get_parameter("sensors.sensor3.can_fd_source_address").as_int();
+  id_to_sensor_[sensors_["sensor3"].can_fd_source_address & 0xFF] = "sensor3";
+
+  declare_parameter<bool>("sensors.sensor4.active", false);
+  sensors_["sensor4"].active = get_parameter("sensors.sensor4.active").as_bool();
+  declare_parameter<int>("sensors.sensor4.max_number_locations", 1);
+  sensors_["sensor4"].max_number_locations =
+    get_parameter("sensors.sensor4.max_number_locations").as_int();
+  declare_parameter<int>("sensors.sensor4.can_fd_source_address", 0x18FF04B3);
+  sensors_["sensor4"].can_fd_source_address =
+    get_parameter("sensors.sensor4.can_fd_source_address").as_int();
+  id_to_sensor_[sensors_["sensor4"].can_fd_source_address & 0xFF] = "sensor4";
 }
 
 }  // namespace corner_radar_driver

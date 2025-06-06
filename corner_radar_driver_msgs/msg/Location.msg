@@ -1,6 +1,6 @@
 std_msgs/Header header
 
-uint8 id
+uint16 id
 uint16 crc
 uint8 alive_ctr
 uint8 prot_block_ctr

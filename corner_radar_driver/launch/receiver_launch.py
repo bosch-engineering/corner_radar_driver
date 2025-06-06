@@ -12,30 +12,74 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
+
+
+def load_yaml(path):
+    with open(path, "r") as file:
+        import yaml
+
+        return yaml.safe_load(file)
 
 
 def generate_launch_description():
-    params = PathJoinSubstitution([
-        FindPackageShare('corner_radar_driver'),
-        'config',
-        'receiver_params.yaml'
-    ])
+    """
+    Generate a ROS 2 launch description for the corner_radar_driver receiver node.
 
-    return LaunchDescription([
-        DeclareLaunchArgument('params',
-                              default_value=params,
-                              description='Parameters for receiver'),
-        Node(
-            package='corner_radar_driver',
-            executable='receiver',
-            name='corner_radar_driver_receiver',
-            output='screen',
-            parameters=[LaunchConfiguration('params')],
-            arguments=[]
-        )
-    ])
+    Generate a launch description containing the receiver node and associated static
+    transform publishers for all active sensors.
+
+    Returns
+    -------
+    LaunchDescription
+        A ROS 2 launch description object containing all necessary nodes
+        for the receiver and static transforms.
+
+    """
+    pkg_dir = get_package_share_directory("corner_radar_driver")
+
+    receiver_params = os.path.join(pkg_dir, "config", "receiver_params.yaml")
+
+    sensors_config_file = os.path.join(pkg_dir, "config", "sensors_configuration.yaml")
+    sensors_full_config = load_yaml(sensors_config_file)
+    sensors_config = sensors_full_config["corner_radar_driver_receiver"][
+        "ros__parameters"
+    ]["sensors"]
+
+    static_tf_nodes = []
+    for sensor_name, sensor in sensors_config.items():
+        # Create a static transform publisher for each sensor
+        if sensor.get("active", True):
+            pos = sensor["mounting_position"]
+            static_tf_nodes.append(
+                Node(
+                    package="tf2_ros",
+                    executable="static_transform_publisher",
+                    name=f"static_transform_publisher_{sensor_name}",
+                    arguments=[
+                        str(float(pos["xt"])),
+                        str(float(pos["yt"])),
+                        str(float(pos["zt"])),
+                        str(float(pos["yaw"])),
+                        str(float(pos["pitch"])),
+                        str(float(pos["roll"])),
+                        "base_link",
+                        sensor_name,
+                    ],
+                    output="screen",
+                )
+            )
+
+    # Create the receiver node
+    receiver_node = Node(
+        package="corner_radar_driver",
+        executable="receiver",
+        name="corner_radar_driver_receiver",
+        parameters=[sensors_config_file, receiver_params],
+        output="screen",
+    )
+    return LaunchDescription(static_tf_nodes + [receiver_node])

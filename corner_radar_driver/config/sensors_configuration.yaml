@@ -1,0 +1,36 @@
+corner_radar_driver_receiver:
+  ros__parameters:
+    # Maximum number of Location CAN messages can be configured via DID 0xFD03
+    # 01 = 85 CANFD location messages (255 locations) - default
+    # 02 = 56 CANFD location messages (168 locations)
+    # 03 = 37 CANFD location messages (111 locations)
+    # 04 = 28 CANFD location messages (84 locations)
+    sensors:
+      sensor1:
+        active: true
+        max_number_locations: 0x01
+        can_fd_source_address: 0x18FF04B0
+        # xt, yt, zt: position in meters
+        # roll, pitch, yaw: orientation in radians
+        mounting_position: {xt: "0.000", yt: "0.000", zt: "0.000", roll: "0.000", pitch: "0.000", yaw: "0.000"}
+      sensor2:
+        active: false
+        max_number_locations: 0x01
+        can_fd_source_address: 0x18FF04B1
+        # xt, yt, zt: position in meters
+        # roll, pitch, yaw: orientation in radians
+        mounting_position: {xt: "0.000", yt: "0.000", zt: "0.000", roll: "0.000", pitch: "0.000", yaw: "0.000"}
+      sensor3:
+        active: false
+        max_number_locations: 0x01
+        can_fd_source_address: 0x18FF04B2
+        # xt, yt, zt: position in meters
+        # roll, pitch, yaw: orientation in radians
+        mounting_position: {xt: "0.000", yt: "0.000", zt: "0.000", roll: "0.000", pitch: "0.000", yaw: "0.000"}
+      sensor4:
+        active: false
+        max_number_locations: 0x01
+        can_fd_source_address: 0x18FF04B3
+        # xt, yt, zt: position in meters
+        # roll, pitch, yaw: orientation in radians
+        mounting_position: {xt: "0.000", yt: "0.000", zt: "0.000", roll: "0.000", pitch: "0.000", yaw: "0.000"}
