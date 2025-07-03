@@ -21,7 +21,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(off_highway_can REQUIRED)
 find_package(corner_radar_driver_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
-find_package(pcl_ros REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
 
 set(dependencies
@@ -31,7 +30,6 @@ set(dependencies
   off_highway_can
   corner_radar_driver_msgs
   pcl_conversions
-  pcl_ros
   PCL
 )
 
@@ -82,6 +80,8 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   find_package(ament_cmake_ros REQUIRED)
+  find_package(pcl_ros REQUIRED)
+  find_package(ros2_socketcan_msgs REQUIRED)
 
   ament_add_ros_isolated_gtest(test_receiver_locations test/test_receiver_locations.cpp)
   target_include_directories(test_receiver_locations PUBLIC
@@ -96,6 +96,8 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
   )
+  ament_target_dependencies(test_pcl_point_location pcl_ros)
+  ament_target_dependencies(test_pcl_point_location ros2_socketcan_msgs)
   target_link_libraries(test_pcl_point_location ${PROJECT_NAME})
 endif()
 
