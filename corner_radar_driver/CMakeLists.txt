@@ -22,6 +22,9 @@ find_package(off_highway_can REQUIRED)
 find_package(corner_radar_driver_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 set(dependencies
   rclcpp
@@ -31,6 +34,9 @@ set(dependencies
   corner_radar_driver_msgs
   pcl_conversions
   PCL
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 # Library to be used in unit tests
