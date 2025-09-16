@@ -2,8 +2,8 @@
 Changelog for package corner_radar_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-09-16)
+------------------
 * Update README
 * Add missing tf dependencies
 * Move PCL dependencies
