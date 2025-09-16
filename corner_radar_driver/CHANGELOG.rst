@@ -2,6 +2,16 @@
 Changelog for package corner_radar_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update README
+* Add missing tf dependencies
+* Move PCL dependencies
+* Add unit tests for multiple sensor support
+* Add support for multiple sensors in the corner radar driver
+* Update README
+* Contributors: Calin-Vasile Sopterean, Gabriela Adriana Lapuste
+
 0.2.0 (2025-03-04)
 ------------------
 * Filter locations with zeros

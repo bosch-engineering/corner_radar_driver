@@ -2,6 +2,11 @@
 Changelog for package corner_radar_driver_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add support for multiple sensors in the corner radar driver
+* Contributors: Gabriela Adriana Lapuste
+
 0.2.0 (2025-03-04)
 ------------------
 * Update locations receiver to the new DBC structure
