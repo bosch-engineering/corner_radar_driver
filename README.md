@@ -4,6 +4,10 @@ This project provides ROS drivers for Bosch Corner Radar LGU sensors.
 
 These packages are developed for ROS 2 Humble on Ubuntu 22.04.
 
+More information on the Bosch LGU sensors can be found here: [https://www.bosch-ibusiness.com/products/product-categories/sensors/radar-sensor/](https://www.bosch-ibusiness.com/products/product-categories/sensors/radar-sensor/)
+
+Please contact us via the contact form for technical and commercial questions.
+
 ## CAN Based Drivers
 
 - [**corner_radar_driver**](corner_radar_driver/README.md): Receiver
