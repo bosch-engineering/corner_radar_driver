@@ -4,7 +4,7 @@
   <name>corner_radar_driver</name>
   <version>0.3.0</version>
   <description>The corner_radar_driver package</description>
-  <maintainer email="gabriela-adriana.lapuste@ro.bosch.com">Adriana Gabriela Lapuste</maintainer>
+  <maintainer email="darius.man@ro.bosch.com">Darius Man</maintainer>
   <license>Apache-2.0</license>
 
   <author email="gabriela-adriana.lapuste@ro.bosch.com">Adriana Gabriela Lapuste</author>
