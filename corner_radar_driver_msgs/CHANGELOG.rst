@@ -2,6 +2,11 @@
 Changelog for package corner_radar_driver_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update maintainer
+* Contributors: Darius Man
+
 0.3.0 (2025-09-16)
 ------------------
 * Add support for multiple sensors in the corner radar driver
