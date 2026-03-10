@@ -2,8 +2,8 @@
 Changelog for package corner_radar_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.1 (2026-03-10)
+------------------
 * Update maintainer
 * Contributors: Darius Man
 
